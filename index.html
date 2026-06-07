@@ -615,63 +615,71 @@ function selStatus(el){
 // ══════════════════════════════════════
 // PHOTO + EXIF + AI
 // ══════════════════════════════════════
+
+// Convert any image file to JPEG base64 via canvas
+function fileToJpegBase64(file){
+  return new Promise((resolve,reject)=>{
+    const objectUrl=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      const maxSide=1600;
+      let w=img.naturalWidth,h=img.naturalHeight;
+      if(w>maxSide||h>maxSide){
+        if(w>h){h=Math.round(h*maxSide/w);w=maxSide;}
+        else{w=Math.round(w*maxSide/h);h=maxSide;}
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL('image/jpeg',0.92).split(',')[1]);
+    };
+    img.onerror=()=>{
+      URL.revokeObjectURL(objectUrl);
+      // fallback: FileReader
+      const reader=new FileReader();
+      reader.onload=e=>resolve(e.target.result.split(',')[1]);
+      reader.onerror=reject;
+      reader.readAsDataURL(file);
+    };
+    img.src=objectUrl;
+  });
+}
+
 async function onPhoto(input){
   const file=input.files[0];if(!file)return;
   photoFile=file;
-
-  // Compute photo hash (size + name + lastModified)
   photoHash=`${file.size}_${file.name}_${file.lastModified}`;
 
-  // Preview + convert to JPEG via canvas (handles HEIC, HEIF, and other formats)
-  const objectUrl=URL.createObjectURL(file);
-  const tempImg=new Image();
-  tempImg.onload=()=>{
-    const canvas=document.createElement('canvas');
-    // Max 1600px on longest side to keep API payload reasonable
-    const maxSide=1600;
-    let w=tempImg.naturalWidth,h=tempImg.naturalHeight;
-    if(w>maxSide||h>maxSide){
-      if(w>h){h=Math.round(h*maxSide/w);w=maxSide;}
-      else{w=Math.round(w*maxSide/h);h=maxSide;}
-    }
-    canvas.width=w;canvas.height=h;
-    canvas.getContext('2d').drawImage(tempImg,0,0,w,h);
-    const jpegDataUrl=canvas.toDataURL('image/jpeg',0.92);
-    photoBase64=jpegDataUrl.split(',')[1];
-    const img=document.getElementById('prevImg');
-    img.src=jpegDataUrl;img.style.display='block';
-    document.getElementById('uploadZone').style.display='none';
-    document.getElementById('retakeBtn').style.display='block';
-    set('retakeBtn',t.retake);
-    URL.revokeObjectURL(objectUrl);
-  };
-  tempImg.onerror=()=>{
-    // Fallback: read as-is
-    const reader=new FileReader();
-    reader.onload=e=>{
-      photoBase64=e.target.result.split(',')[1];
-      const img=document.getElementById('prevImg');
-      img.src=e.target.result;img.style.display='block';
-      document.getElementById('uploadZone').style.display='none';
-      document.getElementById('retakeBtn').style.display='block';
-      set('retakeBtn',t.retake);
-    };
-    reader.readAsDataURL(file);
-    URL.revokeObjectURL(objectUrl);
-  };
-  tempImg.src=objectUrl;
-
-  // EXIF time
-  timeManual=false;
-  const exif=await getExifTime(file);
-  if(exif){
-    showTimeRow(exif);
-    set('rnote',t.rnote_exif);
-  }
-
-  // AI reading
+  // Show loading spinner while converting
   document.getElementById('aiRow').classList.add('show');
   document.getElementById('rbox').classList.remove('show');
+
+  // Step 1: convert to JPEG (await canvas)
+  try{
+    photoBase64=await fileToJpegBase64(file);
+  }catch(e){
+    document.getElementById('aiRow').classList.remove('show');
+    document.getElementById('rbox').classList.add('show');
+    set('rnote',t.rnote_fail);
+    showTimeRow(new Date().toISOString().slice(0,16));
+    return;
+  }
+
+  // Show preview
+  const img=document.getElementById('prevImg');
+  img.src='data:image/jpeg;base64,'+photoBase64;
+  img.style.display='block';
+  document.getElementById('uploadZone').style.display='none';
+  document.getElementById('retakeBtn').style.display='block';
+  set('retakeBtn',t.retake);
+
+  // Step 2: EXIF time (from original file)
+  timeManual=false;
+  const exif=await getExifTime(file);
+  if(exif){ showTimeRow(exif); set('rnote',t.rnote_exif); }
+
+  // Step 3: AI reading (photoBase64 is now guaranteed set)
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -687,7 +695,7 @@ async function onPhoto(input){
     document.getElementById('rbox').classList.add('show');
     document.getElementById('rInput').value=cleaned;
     if(!exif)set('rnote',t.rnote_ok);
-    if(!exif){showTimeRow(new Date().toISOString().slice(0,16));}
+    if(!exif)showTimeRow(new Date().toISOString().slice(0,16));
   }catch(e){
     document.getElementById('aiRow').classList.remove('show');
     document.getElementById('rbox').classList.add('show');
