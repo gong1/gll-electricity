@@ -45,7 +45,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .pin-error{color:var(--red);font-size:13px;margin-top:12px;height:20px}
 
 /* CONFIG */
-#configScreen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 20px}
 .cfg-card{width:100%;max-width:440px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:24px}
 .cfg-title{font-size:18px;font-weight:700;margin-bottom:4px}
 .cfg-sub{font-size:12px;color:var(--muted);margin-bottom:24px}
@@ -231,20 +230,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
   <div class="pin-back" onclick="backToPerson()" id="pin-back">← 返回</div>
 </div>
 
-<!-- CONFIG -->
-<div id="configScreen">
-  <div class="cfg-card">
-    <div class="cfg-title" id="cfg-title">首次配置</div>
-    <div class="cfg-sub" id="cfg-sub">填写 Supabase 连接信息（每台设备仅需一次）</div>
-    <label class="cfg-lbl">Supabase Project URL</label>
-    <input class="cfg-inp" id="cfgUrl" placeholder="https://xxxx.supabase.co">
-    <div class="cfg-hint" id="cfg-h1">项目设置 → API → Project URL</div>
-    <label class="cfg-lbl">Supabase Anon Key</label>
-    <input class="cfg-inp" id="cfgKey" placeholder="eyJhbGci...">
-    <div class="cfg-hint" id="cfg-h2">项目设置 → API → anon public</div>
-    <button class="cfg-btn" id="cfgSaveBtn" onclick="saveConfig()">保存并进入 →</button>
-  </div>
-</div>
+<!-- CONFIG SCREEN REMOVED - credentials hardcoded -->
 
 <!-- APP -->
 <div id="app">
@@ -276,7 +262,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
       <div class="mcard-body">
         <div class="prev-wrap">
           <div class="upload-zone" id="uploadZone">
-            <input type="file" accept="image/*" capture="environment" id="photoInput" onchange="onPhoto(this)">
+            <input type="file" accept="image/*" id="photoInput" onchange="onPhoto(this)">
             <div class="uz-icon">📸</div>
             <div class="uz-text" id="uz-text">点击拍照 / 选择图片</div>
             <div class="uz-hint" id="uz-hint">AI 自动识别读数 · 自动提取拍摄时间</div>
@@ -467,7 +453,8 @@ const LANG = {
 // ══════════════════════════════════════
 // STATE
 // ══════════════════════════════════════
-const CFG_KEY='gll_elec_v3';
+const SUPABASE_URL='https://rhaxeufcibqrzzghqcpo.supabase.co';
+const SUPABASE_KEY='sb_publishable_vENYzBvBD_fG4jsFVMeJZA_jv3ydJkl';
 let sb=null,cfg=null,currentUser=null,lang='cn',t=LANG.cn;
 let curStatus=null,grillCount=0,photoBase64=null,photoFile=null;
 let timeManual=false;
@@ -478,7 +465,7 @@ let timeManual=false;
 window.addEventListener('DOMContentLoaded',()=>show('personScreen'));
 
 function show(id){
-  ['personScreen','pinScreen','configScreen','app'].forEach(s=>{
+  ['personScreen','pinScreen','app'].forEach(s=>{
     const el=document.getElementById(s);
     if(!el)return;
     el.style.display=s===id?(s==='app'?'block':'flex'):'none';
@@ -519,24 +506,10 @@ function checkPin(){
 // ══════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════
-function loadCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY))||null;}catch{return null;}}
-function saveConfig(){
-  const url=document.getElementById('cfgUrl').value.trim();
-  const key=document.getElementById('cfgKey').value.trim();
-  if(!url||!key){showToast('⚠️ URL + Key required',true);return;}
-  cfg={url,key};localStorage.setItem(CFG_KEY,JSON.stringify(cfg));initApp();
-}
-
 // ══════════════════════════════════════
 // ENTER APP
 // ══════════════════════════════════════
 function enterApp(){
-  cfg=loadCfg();
-  if(!cfg){
-    set('cfg-title',t.cfg_title);set('cfg-sub',t.cfg_sub);
-    set('cfg-h1',t.cfg_h1);set('cfg-h2',t.cfg_h2);set('cfgSaveBtn',t.cfg_save);
-    show('configScreen');return;
-  }
   initApp();
 }
 
@@ -553,7 +526,7 @@ function initApp(){
     nav.innerHTML=`<button class="nav-btn active" onclick="gotoPage('submit',this)"><span class="ni">${t.ni_submit}</span><span>${t.nav_submit}</span></button><button class="nav-btn" onclick="gotoPage('records',this)"><span class="ni">${t.ni_records}</span><span>${t.nav_records}</span></button>`;
   }
   // Supabase
-  sb=supabase.createClient(cfg.url,cfg.key);
+  sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   setConn('loading',t.conn_loading);
   sb.from('electricity_readings').select('id').limit(1).then(({error})=>{
     setConn(error?'err':'ok',error?t.conn_err:t.conn_ok);
