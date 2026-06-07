@@ -690,6 +690,14 @@ async function onPhoto(input){
         ]}]})
     });
     const data=await res.json();
+    // Check for API-level errors
+    if(data.error){
+      document.getElementById('aiRow').classList.remove('show');
+      document.getElementById('rbox').classList.add('show');
+      set('rnote','❌ API错误：'+data.error.message);
+      if(!exif)showTimeRow(new Date().toISOString().slice(0,16));
+      return;
+    }
     const cleaned=(data.content?.[0]?.text||'').trim().replace(/[^0-9.]/g,'');
     document.getElementById('aiRow').classList.remove('show');
     document.getElementById('rbox').classList.add('show');
@@ -699,9 +707,12 @@ async function onPhoto(input){
   }catch(e){
     document.getElementById('aiRow').classList.remove('show');
     document.getElementById('rbox').classList.add('show');
-    set('rnote',t.rnote_fail);
+    // Show actual error for debugging
+    set('rnote','❌ 错误：'+(e.message||JSON.stringify(e)));
     if(!exif)showTimeRow(new Date().toISOString().slice(0,16));
   }
+
+  // Also show API response errors (not just network errors)
 }
 
 function getExifTime(file){
