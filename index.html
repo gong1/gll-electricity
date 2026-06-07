@@ -196,19 +196,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 <!-- PERSON SELECT -->
 <div id="personScreen">
   <div class="ps-logo" id="ps-logo">⚡ Kochi Restaurant</div>
-  <div class="ps-title" id="ps-title">谁在录入？</div>
-  <div class="ps-sub" id="ps-sub">请选择您的名字</div>
+  <div class="ps-title" id="ps-title">谁在录入？ / Wer erfasst?</div>
+  <div class="ps-sub" id="ps-sub">请选择您的名字 / Bitte Namen auswählen</div>
   <div class="ps-section">
-    <div class="ps-slabel" id="ps-label-staff">员工</div>
+    <div class="ps-slabel" id="ps-label-staff">员工 / Mitarbeiter</div>
     <div class="ps-grid">
-      <button class="ps-btn cn" onclick="selectPerson('赵世斌','cn')"><div class="pb-name">赵世斌</div><div class="pb-role" id="role-zsb">员工</div></button>
-      <button class="ps-btn cn" onclick="selectPerson('高伟','cn')"><div class="pb-name">高伟</div><div class="pb-role" id="role-gw">员工</div></button>
       <button class="ps-btn de" onclick="selectPerson('Tho','de')"><div class="pb-name">Tho</div><div class="pb-role">Mitarbeiter</div></button>
       <button class="ps-btn de" onclick="selectPerson('Anna','de')"><div class="pb-name">Anna</div><div class="pb-role">Mitarbeiterin</div></button>
+      <button class="ps-btn cn" onclick="selectPerson('赵世斌','cn')"><div class="pb-name">赵世斌</div><div class="pb-role" id="role-zsb">员工</div></button>
     </div>
   </div>
   <div class="ps-section">
-    <div class="ps-slabel" id="ps-label-mgmt">管理</div>
+    <div class="ps-slabel" id="ps-label-mgmt">管理 / Management</div>
     <div class="ps-grid">
       <button class="ps-btn boss ps-full" onclick="selectPerson('老板','cn',true)"><div class="pb-name">老板</div><div class="pb-role" id="role-boss">管理员 · 需要密码</div></button>
     </div>
@@ -384,7 +383,7 @@ const LANG = {
     mc_title:'主电表',mc_tag:'AI 自动读数',
     uz_text:'点击拍照 / 选择图片',uz_hint:'AI 自动识别读数 · 自动提取拍摄时间',
     rl_lbl:'表显读数 (kWh)',ai_load:'AI 识别中…',
-    rnote_ok:'✨ AI 识别完成，请核对',rnote_exif:'📅 已读取拍摄时间，可手动修改',rnote_fail:'⚠️ AI 识别失败，请手动输入',
+    rnote_ok:'✨ AI 识别完成，时间节点已自动判断，请核对',rnote_exif:'📅 已读取拍摄时间，时间节点已自动判断',rnote_fail:'⚠️ AI 识别失败，请手动输入',
     retake:'重拍',gm:'台 / 最多 35 台',gpow:'即时功率：',gpow_unit:' kW',
     note_ph:'今日满座 / 设备维修 / 节假日…',
     sub_btn:'✅  提交本次记录',sub_submitting:'提交中…',
@@ -428,7 +427,7 @@ const LANG = {
     mc_title:'Hauptzähler',mc_tag:'KI liest automatisch',
     uz_text:'Foto aufnehmen / Bild wählen',uz_hint:'KI erkennt Zählerstand & Aufnahmezeit',
     rl_lbl:'Zählerstand (kWh)',ai_load:'KI liest…',
-    rnote_ok:'✨ KI-Erkennung OK, bitte prüfen',rnote_exif:'📅 Aufnahmezeit erkannt, änderbar',rnote_fail:'⚠️ Erkennung fehlgeschlagen, bitte manuell eingeben',
+    rnote_ok:'✨ KI-Erkennung OK, Zeitpunkt auto-gewählt',rnote_exif:'📅 Aufnahmezeit erkannt, Zeitpunkt auto-gewählt',rnote_fail:'⚠️ Erkennung fehlgeschlagen, bitte manuell eingeben',
     retake:'Neu aufnehmen',gm:'Grills / max. 35',gpow:'Momentanleistung: ',gpow_unit:' kW',
     note_ph:'Vollbesetzt / Wartung / Feiertag…',
     sub_btn:'✅  Eintrag speichern',sub_submitting:'Wird gespeichert…',
@@ -493,9 +492,7 @@ function selectPerson(name,userLang,isBoss=false){
 function backToPerson(){currentUser=null;pinBuffer='';show('personScreen');}
 function applyPersonLang(){
   set('ps-logo',t.ps_logo);
-  set('ps-title',t.ps_title);set('ps-sub',t.ps_sub);
-  set('ps-label-staff',t.ps_label_staff);set('ps-label-mgmt',t.ps_label_mgmt);
-  set('role-zsb',t.role_staff);set('role-gw',t.role_staff);set('role-boss',t.role_boss);
+  set('role-zsb',t.role_staff);set('role-boss',t.role_boss);
   set('pin-title',t.pin_title);set('pin-sub',t.pin_sub);set('pin-back',t.pin_back);
 }
 
@@ -612,6 +609,24 @@ function selStatus(el){
   if(!showGrill)grillCount=0;
 }
 
+// Auto-select status based on time
+// 00:00–12:30 → before_lunch
+// 12:30–16:00 → after_lunch
+// 16:00–19:00 → before_dinner
+// 19:00–23:59 → after_dinner
+function autoSelectStatus(isoStr){
+  const d=new Date(isoStr);
+  const h=d.getHours(), m=d.getMinutes();
+  const mins=h*60+m;
+  let s;
+  if(mins < 12*60+30)          s='before_lunch';
+  else if(mins < 16*60)        s='after_lunch';
+  else if(mins < 19*60)        s='before_dinner';
+  else                          s='after_dinner';
+  const el=document.querySelector(`.sbtn[data-s="${s}"]`);
+  if(el) selStatus(el);
+}
+
 // ══════════════════════════════════════
 // PHOTO + EXIF + AI
 // ══════════════════════════════════════
@@ -677,7 +692,11 @@ async function onPhoto(input){
   // Step 2: EXIF time (from original file)
   timeManual=false;
   const exif=await getExifTime(file);
-  if(exif){ showTimeRow(exif); set('rnote',t.rnote_exif); }
+  if(exif){
+    showTimeRow(exif);
+    set('rnote',t.rnote_exif);
+    autoSelectStatus(exif);
+  }
 
   // Step 3: AI reading (photoBase64 is now guaranteed set)
   try{
@@ -695,21 +714,19 @@ async function onPhoto(input){
       document.getElementById('aiRow').classList.remove('show');
       document.getElementById('rbox').classList.add('show');
       set('rnote','❌ API错误：'+data.error.message);
-      if(!exif)showTimeRow(new Date().toISOString().slice(0,16));
+      if(!exif){ showTimeRow(new Date().toISOString().slice(0,16)); autoSelectStatus(new Date().toISOString()); }
       return;
     }
     const cleaned=(data.content?.[0]?.text||'').trim().replace(/[^0-9.]/g,'');
     document.getElementById('aiRow').classList.remove('show');
     document.getElementById('rbox').classList.add('show');
     document.getElementById('rInput').value=cleaned;
-    if(!exif)set('rnote',t.rnote_ok);
-    if(!exif)showTimeRow(new Date().toISOString().slice(0,16));
+    if(!exif){ set('rnote',t.rnote_ok); showTimeRow(new Date().toISOString().slice(0,16)); autoSelectStatus(new Date().toISOString()); }
   }catch(e){
     document.getElementById('aiRow').classList.remove('show');
     document.getElementById('rbox').classList.add('show');
-    // Show actual error for debugging
     set('rnote','❌ 错误：'+(e.message||JSON.stringify(e)));
-    if(!exif)showTimeRow(new Date().toISOString().slice(0,16));
+    if(!exif){ showTimeRow(new Date().toISOString().slice(0,16)); autoSelectStatus(new Date().toISOString()); }
   }
 
   // Also show API response errors (not just network errors)
