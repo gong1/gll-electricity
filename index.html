@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>用电监控 · GLL</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+SC:wght@300;400;500;700&family=DM+Sans:wght@300;400;500;700&display=swap');
+:root{--bg:#080c10;--s1:#0f1620;--s2:#162030;--border:#1c2d40;--border2:#253d58;--cyan:#00d4ff;--orange:#ff6b35;--green:#2dff9a;--yellow:#ffd23f;--red:#ff4757;--text:#daeeff;--muted:#5a7d99;--mono:'Space Mono',monospace;--sans:'Noto Sans SC','DM Sans',sans-serif;--r:12px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overscroll-behavior:none}
+
+/* PERSON SELECT */
+#personScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 20px}
+.ps-logo{font-family:var(--mono);font-size:11px;letter-spacing:4px;color:var(--cyan);margin-bottom:6px;text-transform:uppercase}
+.ps-title{font-size:24px;font-weight:700;margin-bottom:4px}
+.ps-sub{font-size:13px;color:var(--muted);margin-bottom:36px;text-align:center}
+.ps-section{width:100%;max-width:400px;margin-bottom:20px}
+.ps-slabel{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;padding-left:2px}
+.ps-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.ps-btn{background:var(--s1);border:1.5px solid var(--border);border-radius:var(--r);padding:16px 12px;cursor:pointer;transition:all .18s;text-align:center;display:block;width:100%}
+.ps-btn:active{opacity:.8}
+.pb-name{font-size:15px;font-weight:500;margin-bottom:3px}
+.pb-role{font-size:11px;color:var(--muted)}
+.ps-btn.cn:hover{border-color:var(--cyan);background:rgba(0,212,255,.07)}
+.ps-btn.de:hover{border-color:var(--yellow);background:rgba(255,210,63,.07)}
+.ps-btn.boss{border-color:rgba(255,107,53,.4);background:rgba(255,107,53,.06)}
+.ps-btn.boss:hover{border-color:var(--orange);background:rgba(255,107,53,.12)}
+.ps-btn.boss .pb-name{color:var(--orange)}
+.ps-full{grid-column:1/-1}
+
+/* PIN */
+#pinScreen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 20px}
+.pin-title{font-size:20px;font-weight:700;margin-bottom:6px}
+.pin-sub{font-size:13px;color:var(--muted);margin-bottom:32px;text-align:center}
+.pin-dots{display:flex;gap:14px;margin-bottom:28px}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border2);transition:all .2s}
+.pin-dot.filled{background:var(--orange);border-color:var(--orange)}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:240px}
+.pin-key{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:18px;text-align:center;font-size:20px;font-weight:500;cursor:pointer;transition:all .15s;font-family:var(--mono)}
+.pin-key:active{background:var(--s2);transform:scale(.95)}
+.pin-key.del{color:var(--muted);font-size:16px}
+.pin-back{margin-top:20px;font-size:13px;color:var(--muted);cursor:pointer;text-decoration:underline}
+.pin-error{color:var(--red);font-size:13px;margin-top:12px;height:20px}
+
+/* CONFIG */
+#configScreen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 20px}
+.cfg-card{width:100%;max-width:440px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:24px}
+.cfg-title{font-size:18px;font-weight:700;margin-bottom:4px}
+.cfg-sub{font-size:12px;color:var(--muted);margin-bottom:24px}
+.cfg-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:7px;display:block}
+.cfg-inp{width:100%;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;transition:border-color .2s;margin-bottom:6px}
+.cfg-inp:focus{border-color:var(--cyan)}
+.cfg-inp::placeholder{color:var(--muted);opacity:.6}
+.cfg-hint{font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+.cfg-btn{width:100%;padding:14px;background:var(--cyan);color:var(--bg);border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .2s;margin-top:8px}
+.cfg-btn:hover{opacity:.9}
+
+/* APP */
+#app{display:none}
+.conn-bar{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--s1);border-bottom:1px solid var(--border);font-size:11px;color:var(--muted)}
+.cdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cdot.ok{background:var(--green);box-shadow:0 0 6px var(--green)}
+.cdot.err{background:var(--red)}
+.cdot.loading{background:var(--yellow);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hdr{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr-left{display:flex;align-items:center;gap:10px}
+.hdr-logo{font-family:var(--mono);font-size:12px;color:var(--cyan);letter-spacing:2px}
+.hdr-user{font-size:11px;color:var(--muted);background:var(--s2);padding:3px 10px;border-radius:20px;border:1px solid var(--border);cursor:pointer}
+.hdr-time{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.nav{display:grid;background:var(--s1);border-bottom:1px solid var(--border)}
+.nav-btn{padding:11px 4px;text-align:center;font-size:11px;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all .2s;font-family:var(--sans);display:flex;flex-direction:column;align-items:center;gap:3px}
+.nav-btn .ni{font-size:18px}
+.nav-btn.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.page{display:none;padding:18px 16px 50px}
+.page.active{display:block}
+.stitle{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+
+/* STATUS */
+.status-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px}
+.sbtn{background:var(--s1);border:1.5px solid var(--border);border-radius:10px;padding:13px 10px;cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:10px}
+.sbtn:last-child:nth-child(odd){grid-column:1/-1}
+.sb-icon{font-size:20px;flex-shrink:0}
+.sb-name{font-size:13px;font-weight:500}
+.sb-desc{font-size:10px;color:var(--muted);margin-top:2px}
+.sbtn[data-s=before_lunch].sel{border-color:var(--green);background:rgba(45,255,154,.07)}
+.sbtn[data-s=before_lunch].sel .sb-name{color:var(--green)}
+.sbtn[data-s=after_lunch].sel{border-color:var(--yellow);background:rgba(255,210,63,.07)}
+.sbtn[data-s=after_lunch].sel .sb-name{color:var(--yellow)}
+.sbtn[data-s=before_dinner].sel{border-color:var(--cyan);background:rgba(0,212,255,.07)}
+.sbtn[data-s=before_dinner].sel .sb-name{color:var(--cyan)}
+.sbtn[data-s=after_dinner].sel{border-color:var(--orange);background:rgba(255,107,53,.07)}
+.sbtn[data-s=after_dinner].sel .sb-name{color:var(--orange)}
+.sbtn[data-s=special].sel{border-color:var(--red);background:rgba(255,71,87,.07)}
+.sbtn[data-s=special].sel .sb-name{color:var(--red)}
+
+/* METER CARD */
+.mcard{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:18px}
+.mcard-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.mcard-title{font-size:13px;font-weight:500}
+.mtag{font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(0,212,255,.12);color:var(--cyan)}
+.mcard-body{padding:14px 16px}
+.upload-zone{border:1.5px dashed var(--border2);border-radius:8px;padding:22px 16px;text-align:center;cursor:pointer;position:relative;transition:all .2s}
+.upload-zone:hover,.upload-zone.over{border-color:var(--cyan);background:rgba(0,212,255,.04)}
+.upload-zone input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.uz-icon{font-size:30px;margin-bottom:6px}
+.uz-text{font-size:13px}
+.uz-hint{font-size:11px;color:var(--muted);margin-top:4px}
+.prev-wrap{position:relative}
+.prev-img{width:100%;border-radius:8px;max-height:200px;object-fit:cover;display:none}
+.retake-btn{position:absolute;top:8px;right:8px;background:rgba(8,12,16,.85);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--text);cursor:pointer;display:none}
+.ai-row{display:none;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted)}
+.ai-row.show{display:flex}
+.spinner{width:15px;height:15px;border:2px solid var(--border2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rbox{background:var(--s2);border-radius:8px;padding:12px 14px;margin-top:10px;display:none}
+.rbox.show{display:block}
+.rl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.ri{font-family:var(--mono);font-size:26px;color:var(--cyan);width:100%;background:none;border:none;outline:none;margin-top:2px;letter-spacing:2px}
+.rnote{font-size:11px;color:var(--muted);margin-top:8px}
+.time-row{background:rgba(45,255,154,.06);border:1px solid rgba(45,255,154,.2);border-radius:8px;padding:9px 12px;margin-top:10px;display:none;align-items:center;gap:8px;font-size:12px}
+.time-row.show{display:flex}
+.time-inp{background:none;border:none;outline:none;color:var(--green);font-family:var(--mono);font-size:12px;flex:1}
+.time-inp:disabled{opacity:.7}
+.time-toggle{font-size:11px;color:var(--muted);margin-top:6px;cursor:pointer;text-decoration:underline;display:none}
+.time-toggle.show{display:block}
+
+/* COUNTER */
+.ctr{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:18px;display:flex;align-items:center}
+.cb{width:40px;height:40px;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;user-select:none}
+.cb:active{background:var(--border2)}
+.cc{flex:1;text-align:center}
+.cv{font-family:var(--mono);font-size:32px;color:var(--cyan);line-height:1}
+.cm{font-size:11px;color:var(--muted);margin-top:4px}
+.cpow{font-family:var(--mono);font-size:11px;color:var(--orange);margin-top:2px}
+.note-area{width:100%;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:var(--sans);font-size:14px;resize:none;outline:none;transition:border-color .2s;line-height:1.6;margin-bottom:18px}
+.note-area:focus{border-color:var(--cyan)}
+.note-area::placeholder{color:var(--muted);opacity:.6}
+.sub-btn{width:100%;padding:16px;background:var(--cyan);color:var(--bg);border:none;border-radius:var(--r);font-size:16px;font-weight:700;font-family:var(--sans);cursor:pointer;letter-spacing:.5px;transition:all .2s}
+.sub-btn:active{opacity:.85}
+.sub-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* DASHBOARD */
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.dc{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:14px}
+.dc.full{grid-column:1/-1}
+.dl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+.dv{font-family:var(--mono);font-size:20px;color:var(--cyan)}
+.dv.g{color:var(--green)}.dv.o{color:var(--orange)}.dv.y{color:var(--yellow)}
+.ds{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}
+.ck-item{display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)}
+.ck-item:last-child{border-bottom:none}
+.ck-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ck-dot.done{background:var(--green)}.ck-dot.todo{background:var(--border2)}
+.ck-name{flex:1}.ck-val{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.prog-track{background:var(--s2);border-radius:4px;height:6px;overflow:hidden;margin-top:10px}
+.prog-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--cyan),var(--green));transition:width .6s ease}
+.prog-lbl{font-size:11px;color:var(--muted);margin-top:5px;display:flex;justify-content:space-between}
+
+/* AI ANALYSIS */
+.ai-card{background:var(--s1);border:1px solid rgba(0,212,255,.25);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.ai-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ai-icon{font-size:18px}
+.ai-card-title{font-size:13px;font-weight:500;color:var(--cyan)}
+.ai-body{font-size:13px;color:var(--text);line-height:1.8;white-space:pre-wrap}
+.ai-body.loading{color:var(--muted);font-style:italic}
+.ai-refresh-btn{font-family:var(--mono);font-size:10px;color:var(--muted);cursor:pointer;margin-left:auto;border:1px solid var(--border);padding:3px 8px;border-radius:4px;background:none}
+.ai-refresh-btn:hover{color:var(--cyan);border-color:var(--cyan)}
+
+/* RECORDS */
+.rec{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:13px 14px;margin-bottom:9px;display:flex;align-items:flex-start;gap:10px}
+.rec-bar{width:3px;min-height:42px;border-radius:2px;flex-shrink:0;margin-top:2px}
+.rec-body{flex:1;min-width:0}
+.rec-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rec-status{font-size:13px;font-weight:500}
+.rec-reading{font-family:var(--mono);font-size:14px;color:var(--cyan)}
+.rec-meta{font-size:11px;color:var(--muted);margin-top:4px}
+.rec-note{font-size:11px;color:var(--muted);margin-top:3px;font-style:italic}
+.rec-photo{width:48px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0;cursor:pointer}
+.divider{height:1px;background:var(--border);margin:18px 0}
+.empty{text-align:center;padding:50px 20px;color:var(--muted)}
+.empty-i{font-size:44px;opacity:.3;margin-bottom:12px}
+.empty-t{font-size:13px;line-height:1.6}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--green);color:var(--bg);padding:11px 24px;border-radius:24px;font-weight:700;font-size:14px;transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap;pointer-events:none}
+.toast.err{background:var(--red);color:#fff}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999;align-items:center;justify-content:center}
+.lightbox.show{display:flex}
+.lightbox img{max-width:95vw;max-height:90vh;border-radius:8px}
+.lb-close{position:absolute;top:16px;right:16px;font-size:28px;cursor:pointer;color:#fff}
+</style>
+</head>
+<body>
+
+<!-- PERSON SELECT -->
+<div id="personScreen">
+  <div class="ps-logo">⚡ GLL International</div>
+  <div class="ps-title" id="ps-title">谁在录入？</div>
+  <div class="ps-sub" id="ps-sub">请选择您的名字</div>
+  <div class="ps-section">
+    <div class="ps-slabel" id="ps-label-staff">员工</div>
+    <div class="ps-grid">
+      <button class="ps-btn cn" onclick="selectPerson('赵世斌','cn')"><div class="pb-name">赵世斌</div><div class="pb-role" id="role-zsb">员工</div></button>
+      <button class="ps-btn cn" onclick="selectPerson('高伟','cn')"><div class="pb-name">高伟</div><div class="pb-role" id="role-gw">员工</div></button>
+      <button class="ps-btn de" onclick="selectPerson('Tho','de')"><div class="pb-name">Tho</div><div class="pb-role">Mitarbeiter</div></button>
+      <button class="ps-btn de" onclick="selectPerson('Anna','de')"><div class="pb-name">Anna</div><div class="pb-role">Mitarbeiterin</div></button>
+    </div>
+  </div>
+  <div class="ps-section">
+    <div class="ps-slabel" id="ps-label-mgmt">管理</div>
+    <div class="ps-grid">
+      <button class="ps-btn boss ps-full" onclick="selectPerson('老板','cn',true)"><div class="pb-name">老板</div><div class="pb-role" id="role-boss">管理员 · 需要密码</div></button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN -->
+<div id="pinScreen">
+  <div class="pin-title" id="pin-title">请输入管理员密码</div>
+  <div class="pin-sub" id="pin-sub">4位数字</div>
+  <div class="pin-dots"><div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div><div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div></div>
+  <div class="pin-pad">
+    <div class="pin-key" onclick="pinInput('1')">1</div><div class="pin-key" onclick="pinInput('2')">2</div><div class="pin-key" onclick="pinInput('3')">3</div>
+    <div class="pin-key" onclick="pinInput('4')">4</div><div class="pin-key" onclick="pinInput('5')">5</div><div class="pin-key" onclick="pinInput('6')">6</div>
+    <div class="pin-key" onclick="pinInput('7')">7</div><div class="pin-key" onclick="pinInput('8')">8</div><div class="pin-key" onclick="pinInput('9')">9</div>
+    <div class="pin-key" style="opacity:.2"></div><div class="pin-key" onclick="pinInput('0')">0</div><div class="pin-key del" onclick="pinDel()">⌫</div>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+  <div class="pin-back" onclick="backToPerson()" id="pin-back">← 返回</div>
+</div>
+
+<!-- CONFIG -->
+<div id="configScreen">
+  <div class="cfg-card">
+    <div class="cfg-title" id="cfg-title">首次配置</div>
+    <div class="cfg-sub" id="cfg-sub">填写 Supabase 连接信息（每台设备仅需一次）</div>
+    <label class="cfg-lbl">Supabase Project URL</label>
+    <input class="cfg-inp" id="cfgUrl" placeholder="https://xxxx.supabase.co">
+    <div class="cfg-hint" id="cfg-h1">项目设置 → API → Project URL</div>
+    <label class="cfg-lbl">Supabase Anon Key</label>
+    <input class="cfg-inp" id="cfgKey" placeholder="eyJhbGci...">
+    <div class="cfg-hint" id="cfg-h2">项目设置 → API → anon public</div>
+    <button class="cfg-btn" id="cfgSaveBtn" onclick="saveConfig()">保存并进入 →</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="conn-bar">
+    <div class="cdot loading" id="cdot"></div>
+    <span id="ctext">连接中…</span>
+    <span style="margin-left:auto;font-size:11px;cursor:pointer" onclick="backToPerson()" id="switch-user-btn">切换用户</span>
+  </div>
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-logo">⚡ GLL</div>
+      <div class="hdr-user" id="hdrUser"></div>
+    </div>
+    <div class="hdr-time" id="hdrTime"></div>
+  </div>
+  <nav class="nav" id="mainNav" style="grid-template-columns:1fr 1fr"></nav>
+
+  <!-- SUBMIT -->
+  <div class="page active" id="page-submit">
+    <div class="stitle" id="st1">① 时间节点</div>
+    <div class="status-grid" id="statusGrid"></div>
+
+    <div class="stitle" id="st2">② 电表拍照</div>
+    <div class="mcard">
+      <div class="mcard-head">
+        <div class="mcard-title" id="mc-title">主电表</div>
+        <div class="mtag" id="mc-tag">AI 自动读数</div>
+      </div>
+      <div class="mcard-body">
+        <div class="prev-wrap">
+          <div class="upload-zone" id="uploadZone">
+            <input type="file" accept="image/*" capture="environment" id="photoInput" onchange="onPhoto(this)">
+            <div class="uz-icon">📸</div>
+            <div class="uz-text" id="uz-text">点击拍照 / 选择图片</div>
+            <div class="uz-hint" id="uz-hint">AI 自动识别读数 · 自动提取拍摄时间</div>
+          </div>
+          <img class="prev-img" id="prevImg">
+          <div class="retake-btn" id="retakeBtn" onclick="retakePhoto()">重拍</div>
+        </div>
+        <div class="ai-row" id="aiRow"><div class="spinner"></div><span id="ai-load-txt">AI 识别中…</span></div>
+        <div class="rbox" id="rbox">
+          <div class="rl" id="rl-lbl">表显读数 (kWh)</div>
+          <input class="ri" id="rInput" placeholder="161626.99">
+          <div class="rnote" id="rnote">✨ AI 识别完成，请核对</div>
+        </div>
+        <div class="time-row" id="timeRow">
+          <span>🕐</span>
+          <input class="time-inp" id="timeInp" type="datetime-local" disabled>
+        </div>
+        <span class="time-toggle" id="timeToggle" onclick="toggleTime()"></span>
+      </div>
+    </div>
+
+    <div class="stitle" id="st3">③ 烤炉开台数</div>
+    <div class="ctr">
+      <div class="cb" onclick="chgG(-1)">−</div>
+      <div class="cc">
+        <div class="cv" id="gv">0</div>
+        <div class="cm" id="gm">台 / 最多 35 台</div>
+        <div class="cpow" id="gpow">即时功率：0 kW</div>
+      </div>
+      <div class="cb" onclick="chgG(1)">+</div>
+    </div>
+
+    <div class="stitle" id="st4">④ 备注（可选）</div>
+    <textarea class="note-area" id="noteArea" rows="3" placeholder="今日满座 / 设备维修 / 节假日…"></textarea>
+    <button class="sub-btn" id="subBtn" onclick="submitRecord()">✅  提交本次记录</button>
+  </div>
+
+  <!-- DASHBOARD (boss only) -->
+  <div class="page" id="page-dash">
+    <div class="stitle" id="dst1">今日进度</div>
+    <div class="dc full" style="margin-bottom:12px"><div class="dl" id="dl-today">今日记录完成度</div><div id="todayChecklist"></div></div>
+
+    <div class="stitle" id="dst2">今日用电分析</div>
+    <div class="dg">
+      <div class="dc"><div class="dl" id="dl-lunch">午市耗电</div><div class="dv y" id="d-lunch">—</div><div class="ds" id="ds-lunch">kWh</div></div>
+      <div class="dc"><div class="dl" id="dl-dinner">晚市耗电</div><div class="dv o" id="d-dinner">—</div><div class="ds" id="ds-dinner">kWh</div></div>
+      <div class="dc full"><div class="dl" id="dl-total">今日营业总耗电</div><div class="dv" id="d-total">—</div><div class="ds" id="ds-total">kWh</div></div>
+    </div>
+
+    <div class="stitle" id="dst3">静态负载</div>
+    <div class="dg">
+      <div class="dc full">
+        <div class="dl" id="dl-static">关店期间</div>
+        <div class="dv g" id="d-static">—</div>
+        <div class="ds" id="ds-static">kWh · 制冷 + 待机</div>
+        <div class="prog-track" id="staticProg" style="display:none"><div class="prog-fill" id="staticBar" style="width:0%"></div></div>
+        <div class="prog-lbl" id="staticLbl" style="display:none"><span>0</span><span id="staticBarR"></span></div>
+      </div>
+    </div>
+
+    <div class="stitle" id="dst4">累计统计</div>
+    <div class="dg">
+      <div class="dc"><div class="dl" id="dl-days">记录天数</div><div class="dv g" id="d-days">0</div><div class="ds">天</div></div>
+      <div class="dc"><div class="dl" id="dl-count">总记录</div><div class="dv" id="d-count">0</div><div class="ds" id="ds-count">条</div></div>
+      <div class="dc full"><div class="dl" id="dl-avg">近7日平均营业耗电</div><div class="dv o" id="d-avg">—</div><div class="ds" id="ds-avg">kWh/天</div></div>
+    </div>
+
+    <div class="stitle" id="dst5">AI 智能分析</div>
+    <div class="ai-card">
+      <div class="ai-head">
+        <span class="ai-icon">🤖</span>
+        <span class="ai-card-title" id="ai-ctitle">用电模式分析</span>
+        <button class="ai-refresh-btn" onclick="runAI()" id="aiRefBtn">刷新分析</button>
+      </div>
+      <div class="ai-body loading" id="aiBody">点击"刷新分析"生成报告</div>
+    </div>
+
+    <div class="stitle" id="dst6">节能参考</div>
+    <div class="dc full"><div style="font-size:12px;color:var(--muted);line-height:2" id="eco-tips"></div></div>
+  </div>
+
+  <!-- RECORDS -->
+  <div class="page" id="page-records">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div class="stitle" style="margin-bottom:0" id="rec-title">历史记录</div>
+      <span style="font-size:11px;color:var(--muted);cursor:pointer" onclick="loadRecords()">🔄 <span id="rec-refresh">刷新</span></span>
+    </div>
+    <div id="recordsList"><div class="empty"><div class="empty-i">📋</div><div class="empty-t" id="rec-empty">加载中…</div></div></div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="closeLb()"><span class="lb-close">×</span><img id="lbImg"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════
+// I18N
+// ══════════════════════════════════════
+const LANG = {
+  cn:{
+    ps_title:'谁在录入？',ps_sub:'请选择您的名字',ps_label_staff:'员工',ps_label_mgmt:'管理',
+    role_staff:'员工',role_boss:'管理员 · 需要密码',
+    pin_title:'请输入管理员密码',pin_sub:'4位数字',pin_back:'← 返回',pin_wrong:'密码错误，请重试',
+    cfg_title:'首次配置',cfg_sub:'填写 Supabase 连接信息（每台设备仅需一次）',
+    cfg_h1:'项目设置 → API → Project URL',cfg_h2:'项目设置 → API → anon public',cfg_save:'保存并进入 →',
+    conn_loading:'连接中…',conn_ok:'已连接 · 数据实时同步',conn_err:'连接失败 · 请检查配置',
+    switch_user:'切换用户',
+    st1:'① 时间节点',st2:'② 电表拍照',st3:'③ 烤炉开台数',st4:'④ 备注（可选）',
+    statuses:[
+      {s:'before_lunch',icon:'🌤️',name:'午市前',desc:'开午市前拍照'},
+      {s:'after_lunch', icon:'☀️', name:'午市后',desc:'午市结束时拍照'},
+      {s:'before_dinner',icon:'🌆',name:'晚市前',desc:'开晚市前拍照'},
+      {s:'after_dinner',icon:'🌙',name:'晚市后',desc:'关店时拍照'},
+      {s:'special',     icon:'📌',name:'特殊记录',desc:'临时加测一次'},
+    ],
+    mc_title:'主电表',mc_tag:'AI 自动读数',
+    uz_text:'点击拍照 / 选择图片',uz_hint:'AI 自动识别读数 · 自动提取拍摄时间',
+    rl_lbl:'表显读数 (kWh)',ai_load:'AI 识别中…',
+    rnote_ok:'✨ AI 识别完成，请核对',rnote_exif:'📅 已读取拍摄时间，可手动修改',rnote_fail:'⚠️ AI 识别失败，请手动输入',
+    retake:'重拍',gm:'台 / 最多 35 台',gpow:'即时功率：',gpow_unit:' kW',
+    note_ph:'今日满座 / 设备维修 / 节假日…',
+    sub_btn:'✅  提交本次记录',sub_submitting:'提交中…',
+    time_manual:'手动修改时间',time_auto:'恢复自动',
+    nav_submit:'录入',nav_dash:'统计',nav_records:'记录',
+    ni_submit:'📷',ni_dash:'📊',ni_records:'📋',
+    dl_today:'今日记录完成度',
+    dl_lunch:'午市耗电',ds_lunch:'kWh（午市前→后）',
+    dl_dinner:'晚市耗电',ds_dinner:'kWh（晚市前→后）',
+    dl_total:'今日营业总耗电',ds_total:'kWh · 午市 + 晚市',
+    dl_static:'关店期间静态负载',ds_static:'kWh · 制冷 + 待机',
+    dl_days:'记录天数',dl_count:'总记录',ds_count:'条',
+    dl_avg:'近7日平均营业耗电',ds_avg:'kWh/天',
+    ai_ctitle:'用电模式分析',ai_refresh:'刷新分析',ai_placeholder:'点击"刷新分析"生成报告',ai_analyzing:'AI 分析中，请稍候…',
+    dst1:'今日进度',dst2:'今日用电分析',dst3:'静态负载',dst4:'累计统计',dst5:'AI 智能分析',dst6:'节能参考',
+    eco:'🔥 35台烤炉满开 × 4kW = <strong style="color:var(--cyan)">140 kW</strong> 即时功率<br>🌡️ 静态负载正常范围：<strong style="color:var(--green)">50–80 kWh/夜</strong><br>⚠️ 静态负载 > <strong style="color:var(--orange)">100 kWh</strong> → 建议排查制冷设备',
+    rec_title:'历史记录',rec_refresh:'刷新',rec_empty:'暂无记录',
+    toast_no_status:'⚠️ 请选择时间节点',toast_no_reading:'⚠️ 请填写电表读数',
+    toast_bad:'⚠️ 读数格式不正确',toast_ok:'✅ 提交成功！',toast_fail:'❌ 提交失败：',
+    status_labels:{before_lunch:'午市前',after_lunch:'午市后',before_dinner:'晚市前',after_dinner:'晚市后',special:'特殊记录'},
+    ai_prompt: (summary, avgStatic, count, lang) =>
+      `你是杜塞尔多夫GLL International GmbH韩式烤肉餐厅的能源顾问。餐厅650m²，35台烤炉（各4kW），大量制冷设备、牛肉熟成柜、空调。月用电约10000度，目前处于SWD Ersatzversorgung应急供电（电价偏贵）。\n\n近期用电数据（每行：日期 午市耗电 晚市耗电 最大烤炉台数）：\n${summary}\n\n关店后平均静态功率：${avgStatic}\n总记录条数：${count}\n\n请分析：\n1. 营业时段用电规律（午市 vs 晚市）\n2. 静态负载评估\n3. 排名前3的具体节能建议\n4. 预估可节省kWh/月\n\n用中文回答，条理清晰，不超过280字。`,
+  },
+  de:{
+    ps_title:'Wer erfasst?',ps_sub:'Bitte Namen auswählen',ps_label_staff:'Mitarbeiter',ps_label_mgmt:'Management',
+    role_staff:'Mitarbeiter',role_boss:'Admin · PIN erforderlich',
+    pin_title:'Administrator-PIN',pin_sub:'4-stellige Zahl',pin_back:'← Zurück',pin_wrong:'Falscher PIN',
+    cfg_title:'Erstkonfiguration',cfg_sub:'Supabase-Verbindung einrichten (einmalig)',
+    cfg_h1:'Projekteinstellungen → API → Project URL',cfg_h2:'Projekteinstellungen → API → anon public',cfg_save:'Speichern & Starten →',
+    conn_loading:'Verbinde…',conn_ok:'Verbunden · Echtzeit-Sync',conn_err:'Verbindungsfehler',
+    switch_user:'Benutzer wechseln',
+    st1:'① Zeitpunkt',st2:'② Zähler-Foto',st3:'③ Anzahl Grills',st4:'④ Notiz (optional)',
+    statuses:[
+      {s:'before_lunch',icon:'🌤️',name:'Vor Mittag',desc:'Foto vor Mittagsöffnung'},
+      {s:'after_lunch', icon:'☀️', name:'Nach Mittag',desc:'Foto bei Mittagsschluss'},
+      {s:'before_dinner',icon:'🌆',name:'Vor Abend',desc:'Foto vor Abendöffnung'},
+      {s:'after_dinner',icon:'🌙',name:'Nach Abend',desc:'Foto bei Ladenschluss'},
+      {s:'special',     icon:'📌',name:'Sondermessung',desc:'Zusätzliche Ablesung'},
+    ],
+    mc_title:'Hauptzähler',mc_tag:'KI liest automatisch',
+    uz_text:'Foto aufnehmen / Bild wählen',uz_hint:'KI erkennt Zählerstand & Aufnahmezeit',
+    rl_lbl:'Zählerstand (kWh)',ai_load:'KI liest…',
+    rnote_ok:'✨ KI-Erkennung OK, bitte prüfen',rnote_exif:'📅 Aufnahmezeit erkannt, änderbar',rnote_fail:'⚠️ Erkennung fehlgeschlagen, bitte manuell eingeben',
+    retake:'Neu aufnehmen',gm:'Grills / max. 35',gpow:'Momentanleistung: ',gpow_unit:' kW',
+    note_ph:'Vollbesetzt / Wartung / Feiertag…',
+    sub_btn:'✅  Eintrag speichern',sub_submitting:'Wird gespeichert…',
+    time_manual:'Zeit manuell ändern',time_auto:'Automatisch',
+    nav_submit:'Erfassen',nav_dash:'Statistik',nav_records:'Verlauf',
+    ni_submit:'📷',ni_dash:'📊',ni_records:'📋',
+    dl_today:'Heutige Erfassung',
+    dl_lunch:'Mittag-Verbrauch',ds_lunch:'kWh (vor→nach Mittag)',
+    dl_dinner:'Abend-Verbrauch',ds_dinner:'kWh (vor→nach Abend)',
+    dl_total:'Gesamt Betriebsverbrauch',ds_total:'kWh · Mittag + Abend',
+    dl_static:'Nacht-Grundlast',ds_static:'kWh · Kühlung + Standby',
+    dl_days:'Erfassungstage',dl_count:'Einträge',ds_count:'Einträge',
+    dl_avg:'Ø Verbrauch 7 Tage',ds_avg:'kWh/Tag',
+    ai_ctitle:'Verbrauchsanalyse',ai_refresh:'Analyse aktualisieren',ai_placeholder:'„Analyse aktualisieren" für KI-Bericht',ai_analyzing:'KI analysiert…',
+    dst1:'Heutiger Fortschritt',dst2:'Heutige Analyse',dst3:'Nacht-Grundlast',dst4:'Gesamtstatistik',dst5:'KI-Analyse',dst6:'Energiespartipps',
+    eco:'🔥 35 Grills × 4kW = <strong style="color:var(--cyan)">140 kW</strong> Spitzenlast<br>🌡️ Normale Grundlast: <strong style="color:var(--green)">50–80 kWh</strong><br>⚠️ Grundlast > <strong style="color:var(--orange)">100 kWh</strong> → Kühlung prüfen',
+    rec_title:'Verlauf',rec_refresh:'Aktualisieren',rec_empty:'Keine Einträge',
+    toast_no_status:'⚠️ Bitte Zeitpunkt wählen',toast_no_reading:'⚠️ Bitte Zählerstand eingeben',
+    toast_bad:'⚠️ Ungültiges Format',toast_ok:'✅ Gespeichert!',toast_fail:'❌ Fehler: ',
+    status_labels:{before_lunch:'Vor Mittag',after_lunch:'Nach Mittag',before_dinner:'Vor Abend',after_dinner:'Nach Abend',special:'Sondermessung'},
+    ai_prompt: (summary, avgStatic, count) =>
+      `Du bist Energieberater für GLL International GmbH, ein koreanisches BBQ-Restaurant in Düsseldorf. 650 m², 35 Grillöfen (je 4 kW), viel Kühlung, Dry-Aging, Klimaanlagen. ~10.000 kWh/Monat, aktuell teure Ersatzversorgung bei SWD.\n\nMessdaten (Datum Mittagsverbrauch Abendverbrauch Max-Grills):\n${summary}\n\nDurchschnittliche Nacht-Grundlast: ${avgStatic}\nDatensätze gesamt: ${count}\n\nBitte analysiere:\n1. Betriebsmuster Mittag vs. Abend\n2. Grundlast-Bewertung\n3. Top 3 Einsparempfehlungen\n4. Geschätzte Einsparpotenziale kWh/Monat\n\nAntwort auf Deutsch, max. 280 Wörter.`,
+  }
+};
+
+// ══════════════════════════════════════
+// STATE
+// ══════════════════════════════════════
+const CFG_KEY='gll_elec_v3';
+let sb=null,cfg=null,currentUser=null,lang='cn',t=LANG.cn;
+let curStatus=null,grillCount=0,photoBase64=null,photoFile=null;
+let timeManual=false;
+
+// ══════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════
+window.addEventListener('DOMContentLoaded',()=>show('personScreen'));
+
+function show(id){
+  ['personScreen','pinScreen','configScreen','app'].forEach(s=>{
+    const el=document.getElementById(s);
+    if(!el)return;
+    el.style.display=s===id?(s==='app'?'block':'flex'):'none';
+  });
+}
+
+// ══════════════════════════════════════
+// PERSON SELECT
+// ══════════════════════════════════════
+function selectPerson(name,userLang,isBoss=false){
+  lang=userLang; t=LANG[lang]||LANG.cn;
+  applyPersonLang();
+  currentUser={name,lang,isBoss};
+  if(isBoss){pinBuffer='';updatePinDots();document.getElementById('pinError').textContent='';show('pinScreen');}
+  else enterApp();
+}
+function backToPerson(){currentUser=null;pinBuffer='';show('personScreen');}
+function applyPersonLang(){
+  set('ps-title',t.ps_title);set('ps-sub',t.ps_sub);
+  set('ps-label-staff',t.ps_label_staff);set('ps-label-mgmt',t.ps_label_mgmt);
+  set('role-zsb',t.role_staff);set('role-gw',t.role_staff);set('role-boss',t.role_boss);
+  set('pin-title',t.pin_title);set('pin-sub',t.pin_sub);set('pin-back',t.pin_back);
+}
+
+// ══════════════════════════════════════
+// PIN
+// ══════════════════════════════════════
+const BOSS_PIN='1234';
+let pinBuffer='';
+function pinInput(d){if(pinBuffer.length>=4)return;pinBuffer+=d;updatePinDots();if(pinBuffer.length===4)setTimeout(checkPin,150);}
+function pinDel(){pinBuffer=pinBuffer.slice(0,-1);updatePinDots();document.getElementById('pinError').textContent='';}
+function updatePinDots(){for(let i=0;i<4;i++)document.getElementById('pd'+i).className='pin-dot'+(i<pinBuffer.length?' filled':'');}
+function checkPin(){
+  if(pinBuffer===BOSS_PIN){enterApp();}
+  else{document.getElementById('pinError').textContent=t.pin_wrong;pinBuffer='';updatePinDots();}
+}
+
+// ══════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════
+function loadCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY))||null;}catch{return null;}}
+function saveConfig(){
+  const url=document.getElementById('cfgUrl').value.trim();
+  const key=document.getElementById('cfgKey').value.trim();
+  if(!url||!key){showToast('⚠️ URL + Key required',true);return;}
+  cfg={url,key};localStorage.setItem(CFG_KEY,JSON.stringify(cfg));initApp();
+}
+
+// ══════════════════════════════════════
+// ENTER APP
+// ══════════════════════════════════════
+function enterApp(){
+  cfg=loadCfg();
+  if(!cfg){
+    set('cfg-title',t.cfg_title);set('cfg-sub',t.cfg_sub);
+    set('cfg-h1',t.cfg_h1);set('cfg-h2',t.cfg_h2);set('cfgSaveBtn',t.cfg_save);
+    show('configScreen');return;
+  }
+  initApp();
+}
+
+function initApp(){
+  show('app');applyAppLang();
+  set('hdrUser',currentUser.name);
+  // Build nav
+  const nav=document.getElementById('mainNav');
+  if(currentUser.isBoss){
+    nav.style.gridTemplateColumns='repeat(3,1fr)';
+    nav.innerHTML=`<button class="nav-btn active" onclick="gotoPage('submit',this)"><span class="ni">${t.ni_submit}</span><span>${t.nav_submit}</span></button><button class="nav-btn" onclick="gotoPage('dash',this)"><span class="ni">${t.ni_dash}</span><span>${t.nav_dash}</span></button><button class="nav-btn" onclick="gotoPage('records',this)"><span class="ni">${t.ni_records}</span><span>${t.nav_records}</span></button>`;
+  } else {
+    nav.style.gridTemplateColumns='1fr 1fr';
+    nav.innerHTML=`<button class="nav-btn active" onclick="gotoPage('submit',this)"><span class="ni">${t.ni_submit}</span><span>${t.nav_submit}</span></button><button class="nav-btn" onclick="gotoPage('records',this)"><span class="ni">${t.ni_records}</span><span>${t.nav_records}</span></button>`;
+  }
+  // Supabase
+  sb=supabase.createClient(cfg.url,cfg.key);
+  setConn('loading',t.conn_loading);
+  sb.from('electricity_readings').select('id').limit(1).then(({error})=>{
+    setConn(error?'err':'ok',error?t.conn_err:t.conn_ok);
+  });
+  startClock();buildStatusGrid();loadRecords();
+}
+
+function applyAppLang(){
+  set('ctext',t.conn_loading);set('switch-user-btn',t.switch_user);
+  set('st1',t.st1);set('st2',t.st2);set('st3',t.st3);set('st4',t.st4);
+  set('mc-title',t.mc_title);set('mc-tag',t.mc_tag);
+  set('uz-text',t.uz_text);set('uz-hint',t.uz_hint);
+  set('rl-lbl',t.rl_lbl);set('ai-load-txt',t.ai_load);
+  set('gm',t.gm);document.getElementById('noteArea').placeholder=t.note_ph;
+  set('subBtn',t.sub_btn);
+  set('dl-today',t.dl_today);
+  set('dl-lunch',t.dl_lunch);set('ds-lunch',t.ds_lunch);
+  set('dl-dinner',t.dl_dinner);set('ds-dinner',t.ds_dinner);
+  set('dl-total',t.dl_total);set('ds-total',t.ds_total);
+  set('dl-static',t.dl_static);set('ds-static',t.ds_static);
+  set('dl-days',t.dl_days);set('dl-count',t.dl_count);set('ds-count',t.ds_count);
+  set('dl-avg',t.dl_avg);set('ds-avg',t.ds_avg);
+  set('ai-ctitle',t.ai_ctitle);set('aiRefBtn',t.ai_refresh);
+  setAiBody(t.ai_placeholder,true);
+  set('dst1',t.dst1);set('dst2',t.dst2);set('dst3',t.dst3);
+  set('dst4',t.dst4);set('dst5',t.dst5);set('dst6',t.dst6);
+  setHTML('eco-tips',t.eco);
+  set('rec-title',t.rec_title);set('rec-refresh',t.rec_refresh);set('rec-empty',t.rec_empty);
+}
+function set(id,v){const e=document.getElementById(id);if(e&&v!==undefined)e.textContent=v;}
+function setHTML(id,v){const e=document.getElementById(id);if(e)e.innerHTML=v;}
+function setConn(s,txt){document.getElementById('cdot').className='cdot '+s;set('ctext',txt);}
+function setAiBody(txt,isLoading=false){
+  const b=document.getElementById('aiBody');if(!b)return;
+  b.textContent=txt;b.className='ai-body'+(isLoading?' loading':'');
+}
+
+// ══════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════
+function startClock(){
+  const tick=()=>{document.getElementById('hdrTime').textContent=new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});};
+  tick();setInterval(tick,1000);
+}
+
+// ══════════════════════════════════════
+// NAV
+// ══════════════════════════════════════
+function gotoPage(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(name==='dash')renderDash();
+  if(name==='records')loadRecords();
+}
+
+// ══════════════════════════════════════
+// STATUS GRID
+// ══════════════════════════════════════
+function buildStatusGrid(){
+  document.getElementById('statusGrid').innerHTML=t.statuses.map(s=>`
+    <div class="sbtn" data-s="${s.s}" onclick="selStatus(this)">
+      <span class="sb-icon">${s.icon}</span>
+      <div><div class="sb-name">${s.name}</div><div class="sb-desc">${s.desc}</div></div>
+    </div>`).join('');
+}
+function selStatus(el){
+  document.querySelectorAll('.sbtn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');curStatus=el.dataset.s;
+}
+
+// ══════════════════════════════════════
+// PHOTO + EXIF + AI
+// ══════════════════════════════════════
+async function onPhoto(input){
+  const file=input.files[0];if(!file)return;
+  photoFile=file;
+  // Preview
+  const reader=new FileReader();
+  reader.onload=e=>{
+    photoBase64=e.target.result.split(',')[1];
+    const img=document.getElementById('prevImg');
+    img.src=e.target.result;img.style.display='block';
+    document.getElementById('uploadZone').style.display='none';
+    document.getElementById('retakeBtn').style.display='block';
+    set('retakeBtn',t.retake);
+  };
+  reader.readAsDataURL(file);
+
+  // EXIF time
+  timeManual=false;
+  const exif=await getExifTime(file);
+  if(exif){
+    showTimeRow(exif);
+    set('rnote',t.rnote_exif);
+  }
+
+  // AI reading
+  document.getElementById('aiRow').classList.add('show');
+  document.getElementById('rbox').classList.remove('show');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:80,
+        messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:photoBase64}},
+          {type:'text',text:'这是一块电表LCD屏幕的照片。请识别屏幕上显示的kWh累计数值。直接返回数字，例如：161626.99。只返回数字，不含单位或其他文字。'}
+        ]}]})
+    });
+    const data=await res.json();
+    const cleaned=(data.content?.[0]?.text||'').trim().replace(/[^0-9.]/g,'');
+    document.getElementById('aiRow').classList.remove('show');
+    document.getElementById('rbox').classList.add('show');
+    document.getElementById('rInput').value=cleaned;
+    if(!exif)set('rnote',t.rnote_ok);
+    if(!exif){showTimeRow(new Date().toISOString().slice(0,16));}
+  }catch(e){
+    document.getElementById('aiRow').classList.remove('show');
+    document.getElementById('rbox').classList.add('show');
+    set('rnote',t.rnote_fail);
+    if(!exif)showTimeRow(new Date().toISOString().slice(0,16));
+  }
+}
+
+function getExifTime(file){
+  return new Promise(resolve=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const buf=e.target.result,view=new DataView(buf);
+        if(view.getUint16(0)!==0xFFD8){resolve(null);return;}
+        let off=2;
+        while(off<buf.byteLength-2){
+          const marker=view.getUint16(off);
+          if(marker===0xFFE1){
+            const hdr=String.fromCharCode(view.getUint8(off+4),view.getUint8(off+5),view.getUint8(off+6),view.getUint8(off+7));
+            if(hdr==='Exif'){
+              const tiff=off+10,le=view.getUint16(tiff)===0x4949;
+              const r16=o=>le?view.getUint16(o,true):view.getUint16(o);
+              const r32=o=>le?view.getUint32(o,true):view.getUint32(o);
+              const ifd=tiff+r32(tiff+4),cnt=r16(ifd);
+              for(let i=0;i<cnt;i++){
+                const eo=ifd+2+i*12,tag=r16(eo);
+                if(tag===0x9003||tag===0x0132){
+                  const vo=tiff+r32(eo+8);
+                  let s='';for(let j=0;j<19;j++)s+=String.fromCharCode(view.getUint8(vo+j));
+                  resolve(s.replace(/^(\d{4}):(\d{2}):(\d{2}) /,'$1-$2-$3T'));return;
+                }
+              }
+            }
+            off+=2+view.getUint16(off+2);
+          }else if((marker&0xFF00)===0xFF00)off+=2+view.getUint16(off+2);
+          else break;
+        }
+        resolve(null);
+      }catch{resolve(null);}
+    };
+    r.onerror=()=>resolve(null);
+    r.readAsArrayBuffer(file);
+  });
+}
+
+function showTimeRow(isoStr){
+  const row=document.getElementById('timeRow');
+  const inp=document.getElementById('timeInp');
+  const tog=document.getElementById('timeToggle');
+  row.classList.add('show');
+  tog.className='time-toggle show';
+  inp.value=isoStr.slice(0,16);
+  inp.disabled=!timeManual;
+  set('timeToggle',timeManual?t.time_auto:t.time_manual);
+}
+function toggleTime(){
+  timeManual=!timeManual;
+  document.getElementById('timeInp').disabled=!timeManual;
+  set('timeToggle',timeManual?t.time_auto:t.time_manual);
+}
+function getSubmitTime(){
+  const v=document.getElementById('timeInp').value;
+  return v?new Date(v).toISOString():new Date().toISOString();
+}
+
+function retakePhoto(){
+  document.getElementById('prevImg').style.display='none';
+  document.getElementById('retakeBtn').style.display='none';
+  document.getElementById('uploadZone').style.display='';
+  document.getElementById('rbox').classList.remove('show');
+  document.getElementById('aiRow').classList.remove('show');
+  document.getElementById('timeRow').classList.remove('show');
+  document.getElementById('timeToggle').className='time-toggle';
+  document.getElementById('photoInput').value='';
+  photoBase64=null;photoFile=null;timeManual=false;
+}
+
+// ══════════════════════════════════════
+// GRILL
+// ══════════════════════════════════════
+function chgG(d){
+  grillCount=Math.max(0,Math.min(35,grillCount+d));
+  set('gv',grillCount);
+  set('gpow',t.gpow+(grillCount*4)+t.gpow_unit);
+}
+
+// ══════════════════════════════════════
+// SUBMIT
+// ══════════════════════════════════════
+async function submitRecord(){
+  if(!sb){showToast('DB not connected',true);return;}
+  if(!curStatus){showToast(t.toast_no_status,true);return;}
+  const raw=document.getElementById('rInput').value.trim();
+  if(!raw){showToast(t.toast_no_reading,true);return;}
+  const meterVal=parseFloat(raw);
+  if(isNaN(meterVal)){showToast(t.toast_bad,true);return;}
+
+  const btn=document.getElementById('subBtn');
+  btn.disabled=true;btn.textContent=t.sub_submitting;
+  try{
+    let photoUrl=null;
+    if(photoFile&&photoBase64){
+      const fname=`${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+      const {error:ue}=await sb.storage.from('meter-photos').upload(fname,photoFile,{contentType:photoFile.type});
+      if(!ue){const {data:ud}=sb.storage.from('meter-photos').getPublicUrl(fname);photoUrl=ud?.publicUrl||null;}
+    }
+    const {error}=await sb.from('electricity_readings').insert({
+      created_at:getSubmitTime(),status:curStatus,
+      meter_display:meterVal,grills_on:grillCount,
+      recorder:currentUser.name,note:document.getElementById('noteArea').value.trim()||null,
+      photo_url:photoUrl
+    });
+    if(error)throw error;
+    showToast(t.toast_ok);resetForm();
+  }catch(e){showToast(t.toast_fail+(e.message||''),true);}
+  finally{btn.disabled=false;btn.textContent=t.sub_btn;}
+}
+
+function resetForm(){
+  curStatus=null;grillCount=0;photoBase64=null;photoFile=null;timeManual=false;
+  document.querySelectorAll('.sbtn').forEach(b=>b.classList.remove('sel'));
+  set('gv','0');set('gpow',t.gpow+'0'+t.gpow_unit);
+  document.getElementById('noteArea').value='';
+  document.getElementById('rInput').value='';
+  document.getElementById('rbox').classList.remove('show');
+  document.getElementById('aiRow').classList.remove('show');
+  retakePhoto();
+}
+
+// ══════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════
+async function renderDash(){
+  if(!sb)return;
+  try{
+    const {data,error}=await sb.from('electricity_readings').select('*').order('created_at',{ascending:false}).limit(120);
+    if(error||!data)return;
+    const todayStr=localDate(new Date());
+    const todayRecs=data.filter(r=>localDate(new Date(r.created_at))===todayStr);
+    // Checklist
+    const keys=['before_lunch','after_lunch','before_dinner','after_dinner'];
+    document.getElementById('todayChecklist').innerHTML=keys.map(s=>{
+      const rec=todayRecs.find(r=>r.status===s);
+      const val=rec?`${rec.meter_display.toLocaleString('de-DE',{minimumFractionDigits:2})} kWh`:'—';
+      return `<div class="ck-item"><div class="ck-dot ${rec?'done':'todo'}"></div><div class="ck-name">${t.status_labels[s]}</div><div class="ck-val">${val}</div></div>`;
+    }).join('');
+    // Deltas
+    const bl=todayRecs.find(r=>r.status==='before_lunch'),al=todayRecs.find(r=>r.status==='after_lunch');
+    const bd=todayRecs.find(r=>r.status==='before_dinner'),ad=todayRecs.find(r=>r.status==='after_dinner');
+    const lk=bl&&al?al.meter_display-bl.meter_display:null;
+    const dk=bd&&ad?ad.meter_display-bd.meter_display:null;
+    set('d-lunch',lk!=null?lk.toFixed(2):'—');
+    set('d-dinner',dk!=null?dk.toFixed(2):'—');
+    set('d-total',(lk!=null||dk!=null)?((lk||0)+(dk||0)).toFixed(2)+' kWh':'—');
+    // Static
+    const firstOpen=todayRecs.filter(r=>r.status==='before_lunch'||r.status==='before_dinner').sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at))[0];
+    const prevClose=data.filter(r=>(r.status==='after_dinner'||r.status==='after_lunch')&&localDate(new Date(r.created_at))!==todayStr).sort((a,b)=>+new Date(b.created_at)-+new Date(a.created_at))[0];
+    if(firstOpen&&prevClose){
+      const st=firstOpen.meter_display-prevClose.meter_display;
+      const hrs=(+new Date(firstOpen.created_at)-+new Date(prevClose.created_at))/3600000;
+      set('d-static',st.toFixed(2));
+      set('ds-static',`kWh · ${hrs.toFixed(1)}h · ${(st/hrs).toFixed(2)} kW avg`);
+      const pct=Math.min(100,(st/100)*100);
+      document.getElementById('staticProg').style.display='block';
+      document.getElementById('staticLbl').style.display='flex';
+      document.getElementById('staticBar').style.width=pct+'%';
+      set('staticBarR',`${st.toFixed(1)} / 100 kWh`);
+    }
+    // Cumulative
+    const days=new Set(data.map(r=>localDate(new Date(r.created_at))));
+    set('d-days',days.size);set('d-count',data.length);
+    // 7d avg
+    const byDay={};
+    data.forEach(r=>{const d=localDate(new Date(r.created_at));if(!byDay[d])byDay[d]=[];byDay[d].push(r);});
+    const ops=Object.entries(byDay).map(([,recs])=>{
+      const opens=recs.filter(r=>r.status==='before_lunch'||r.status==='before_dinner').sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at));
+      const closes=recs.filter(r=>r.status==='after_dinner'||r.status==='after_lunch').sort((a,b)=>+new Date(b.created_at)-+new Date(a.created_at));
+      if(!opens.length||!closes.length)return null;
+      return closes[0].meter_display-opens[0].meter_display;
+    }).filter(v=>v!=null&&v>0);
+    if(ops.length>=2)set('d-avg',(ops.slice(0,7).reduce((a,b)=>a+b,0)/Math.min(ops.length,7)).toFixed(2)+' kWh');
+  }catch(e){console.error(e);}
+}
+
+// ══════════════════════════════════════
+// AI ANALYSIS
+// ══════════════════════════════════════
+async function runAI(){
+  if(!sb)return;
+  setAiBody(t.ai_analyzing,true);
+  try{
+    const {data}=await sb.from('electricity_readings').select('*').order('created_at',{ascending:false}).limit(200);
+    if(!data||data.length<4){setAiBody(lang==='de'?'Zu wenige Daten. Mindestens 4 Einträge erfassen.':'数据不足，请积累至少4条记录后再分析。');return;}
+    const byDay={};
+    data.forEach(r=>{const d=localDate(new Date(r.created_at));if(!byDay[d])byDay[d]=[];byDay[d].push(r);});
+    const summary=Object.entries(byDay).slice(0,14).map(([day,recs])=>{
+      const bl=recs.find(r=>r.status==='before_lunch'),al=recs.find(r=>r.status==='after_lunch');
+      const bd=recs.find(r=>r.status==='before_dinner'),ad=recs.find(r=>r.status==='after_dinner');
+      const l=bl&&al?(al.meter_display-bl.meter_display).toFixed(1)+'kWh':'-';
+      const d2=bd&&ad?(ad.meter_display-bd.meter_display).toFixed(1)+'kWh':'-';
+      const maxG=Math.max(...recs.map(r=>r.grills_on||0));
+      return `${day} 午${l} 晚${d2} 炉${maxG}台`;
+    }).join('\n');
+    const sorted=data.slice().sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at));
+    const statics=[];
+    for(let i=1;i<sorted.length;i++){
+      if((sorted[i].status==='before_lunch'||sorted[i].status==='before_dinner')&&(sorted[i-1].status==='after_dinner'||sorted[i-1].status==='after_lunch')){
+        const h=(+new Date(sorted[i].created_at)-+new Date(sorted[i-1].created_at))/3600000;
+        if(h>4&&h<16)statics.push((sorted[i].meter_display-sorted[i-1].meter_display)/h);
+      }
+    }
+    const avgStatic=statics.length?(statics.reduce((a,b)=>a+b,0)/statics.length).toFixed(2)+' kW':'数据不足';
+    const prompt=t.ai_prompt(summary,avgStatic,data.length);
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:700,messages:[{role:'user',content:prompt}]})
+    });
+    const aiData=await res.json();
+    setAiBody(aiData.content?.[0]?.text||'');
+  }catch(e){setAiBody('Error: '+e.message);}
+}
+
+// ══════════════════════════════════════
+// RECORDS
+// ══════════════════════════════════════
+async function loadRecords(){
+  if(!sb)return;
+  const el=document.getElementById('recordsList');
+  el.innerHTML='<div class="empty"><div class="empty-i">⏳</div></div>';
+  try{
+    const {data,error}=await sb.from('electricity_readings').select('*').order('created_at',{ascending:false}).limit(80);
+    if(error)throw error;
+    if(!data||!data.length){el.innerHTML=`<div class="empty"><div class="empty-i">📋</div><div class="empty-t">${t.rec_empty}</div></div>`;return;}
+    const dc={before_lunch:'#2dff9a',after_lunch:'#ffd23f',before_dinner:'#00d4ff',after_dinner:'#ff6b35',special:'#ff4757'};
+    el.innerHTML=data.map(r=>{
+      const dot=dc[r.status]||'#888';
+      const statusLabel=t.status_labels[r.status]||r.status;
+      const dt=new Date(r.created_at);
+      const ts=dt.toLocaleString('de-DE',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'});
+      const gt=r.grills_on>0?` · 🔥×${r.grills_on}`:'';
+      const rt=r.recorder?` · ${r.recorder}`:'';
+      const ph=r.photo_url?`<img class="rec-photo" src="${r.photo_url}" onclick="openLb('${r.photo_url}')" loading="lazy">`:'';
+      return `<div class="rec"><div class="rec-bar" style="background:${dot}"></div><div class="rec-body"><div class="rec-top"><div class="rec-status">${statusLabel}</div><div class="rec-reading">${(r.meter_display||0).toLocaleString('de-DE',{minimumFractionDigits:2})} kWh</div></div><div class="rec-meta">${ts}${rt}${gt}</div>${r.note?`<div class="rec-note">${r.note}</div>`:''}</div>${ph}</div>`;
+    }).join('');
+  }catch(e){el.innerHTML=`<div class="empty"><div class="empty-i">❌</div><div class="empty-t">${e.message}</div></div>`;}
+}
+
+// ══════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════
+function localDate(d){return d.toLocaleDateString('sv-SE',{timeZone:'Europe/Berlin'});}
+function showToast(msg,isErr=false){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast'+(isErr?' err':'')+' show';
+  setTimeout(()=>{el.className='toast'+(isErr?' err':'');},2800);
+}
+function openLb(url){document.getElementById('lbImg').src=url;document.getElementById('lightbox').classList.add('show');}
+function closeLb(){document.getElementById('lightbox').classList.remove('show');}
+</script>
+</body>
+</html>
