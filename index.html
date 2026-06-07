@@ -622,17 +622,44 @@ async function onPhoto(input){
   // Compute photo hash (size + name + lastModified)
   photoHash=`${file.size}_${file.name}_${file.lastModified}`;
 
-  // Preview
-  const reader=new FileReader();
-  reader.onload=e=>{
-    photoBase64=e.target.result.split(',')[1];
+  // Preview + convert to JPEG via canvas (handles HEIC, HEIF, and other formats)
+  const objectUrl=URL.createObjectURL(file);
+  const tempImg=new Image();
+  tempImg.onload=()=>{
+    const canvas=document.createElement('canvas');
+    // Max 1600px on longest side to keep API payload reasonable
+    const maxSide=1600;
+    let w=tempImg.naturalWidth,h=tempImg.naturalHeight;
+    if(w>maxSide||h>maxSide){
+      if(w>h){h=Math.round(h*maxSide/w);w=maxSide;}
+      else{w=Math.round(w*maxSide/h);h=maxSide;}
+    }
+    canvas.width=w;canvas.height=h;
+    canvas.getContext('2d').drawImage(tempImg,0,0,w,h);
+    const jpegDataUrl=canvas.toDataURL('image/jpeg',0.92);
+    photoBase64=jpegDataUrl.split(',')[1];
     const img=document.getElementById('prevImg');
-    img.src=e.target.result;img.style.display='block';
+    img.src=jpegDataUrl;img.style.display='block';
     document.getElementById('uploadZone').style.display='none';
     document.getElementById('retakeBtn').style.display='block';
     set('retakeBtn',t.retake);
+    URL.revokeObjectURL(objectUrl);
   };
-  reader.readAsDataURL(file);
+  tempImg.onerror=()=>{
+    // Fallback: read as-is
+    const reader=new FileReader();
+    reader.onload=e=>{
+      photoBase64=e.target.result.split(',')[1];
+      const img=document.getElementById('prevImg');
+      img.src=e.target.result;img.style.display='block';
+      document.getElementById('uploadZone').style.display='none';
+      document.getElementById('retakeBtn').style.display='block';
+      set('retakeBtn',t.retake);
+    };
+    reader.readAsDataURL(file);
+    URL.revokeObjectURL(objectUrl);
+  };
+  tempImg.src=objectUrl;
 
   // EXIF time
   timeManual=false;
@@ -650,7 +677,7 @@ async function onPhoto(input){
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:80,
         messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:photoBase64}},
+          {type:'image',source:{type:'base64',media_type:'image/jpeg',data:photoBase64}},
           {type:'text',text:'这是一块电表LCD屏幕的照片。请识别屏幕上显示的kWh累计数值。直接返回数字，例如：161626.99。只返回数字，不含单位或其他文字。'}
         ]}]})
     });
