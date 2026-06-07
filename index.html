@@ -683,7 +683,7 @@ async function onPhoto(input){
   try{
     const res=await fetch('https://fancy-resonance-b3a1.totoo1111.workers.dev',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:80,
+      body:JSON.stringify({model:'claude-opus-4-5',max_tokens:80,
         messages:[{role:'user',content:[
           {type:'image',source:{type:'base64',media_type:'image/jpeg',data:photoBase64}},
           {type:'text',text:'这是一块电表LCD屏幕的照片。请识别屏幕上显示的kWh累计数值。直接返回数字，例如：161626.99。只返回数字，不含单位或其他文字。'}
@@ -939,7 +939,7 @@ async function runAI(){
     const prompt=t.ai_prompt(summary,avgStatic,data.length);
     const res=await fetch('https://fancy-resonance-b3a1.totoo1111.workers.dev',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:700,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-opus-4-5',max_tokens:700,messages:[{role:'user',content:prompt}]})
     });
     const aiData=await res.json();
     setAiBody(aiData.content?.[0]?.text||'');
