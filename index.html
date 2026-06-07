@@ -681,7 +681,7 @@ async function onPhoto(input){
 
   // Step 3: AI reading (photoBase64 is now guaranteed set)
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch('https://fancy-resonance-b3a1.totoo1111.workers.dev',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:80,
         messages:[{role:'user',content:[
@@ -937,7 +937,7 @@ async function runAI(){
     }
     const avgStatic=statics.length?(statics.reduce((a,b)=>a+b,0)/statics.length).toFixed(2)+' kW':'数据不足';
     const prompt=t.ai_prompt(summary,avgStatic,data.length);
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
+    const res=await fetch('https://fancy-resonance-b3a1.totoo1111.workers.dev',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:700,messages:[{role:'user',content:prompt}]})
     });
