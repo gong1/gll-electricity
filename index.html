@@ -179,6 +179,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .rec-note{font-size:11px;color:var(--muted);margin-top:3px;font-style:italic}
 .rec-photo{width:48px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0;cursor:pointer}
 .divider{height:1px;background:var(--border);margin:18px 0}
+.period-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.period-icon{font-size:16px}
+.period-title{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--text);text-transform:uppercase;font-weight:700}
+.period-date{font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:auto}
+.incomplete-badge{font-size:10px;background:rgba(255,210,63,.15);color:var(--yellow);border:1px solid rgba(255,210,63,.3);border-radius:4px;padding:1px 6px;margin-left:6px}
+.day-bars{margin-top:10px;margin-bottom:4px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.bar-date{font-family:var(--mono);font-size:10px;color:var(--muted);width:36px;flex-shrink:0}
+.bar-track{flex:1;height:18px;background:var(--s2);border-radius:4px;overflow:hidden;position:relative;display:flex}
+.bar-op{height:100%;background:rgba(0,212,255,.5);border-radius:4px 0 0 4px;transition:width .4s ease}
+.bar-st{height:100%;background:rgba(45,255,154,.35);transition:width .4s ease}
+.bar-val{font-family:var(--mono);font-size:10px;color:var(--muted);width:70px;flex-shrink:0;text-align:right}
+.bar-legend{display:flex;gap:14px;margin-bottom:8px;font-size:11px;color:var(--muted)}
+.bar-legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.warn-row{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--red);margin-bottom:10px;line-height:1.6}
 .empty{text-align:center;padding:50px 20px;color:var(--muted)}
 .empty-i{font-size:44px;opacity:.3;margin-bottom:12px}
 .empty-t{font-size:13px;line-height:1.6}
@@ -302,47 +317,62 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
     <button class="sub-btn" id="subBtn" onclick="submitRecord()">✅  提交本次记录</button>
   </div>
 
+
   <!-- DASHBOARD (boss only) -->
   <div class="page" id="page-dash">
-    <div class="stitle" id="dst1">今日进度</div>
-    <div class="dc full" style="margin-bottom:12px"><div class="dl" id="dl-today">今日记录完成度</div><div id="todayChecklist"></div></div>
 
-    <div class="stitle" id="dst2">今日用电分析</div>
-    <div class="dg">
-      <div class="dc"><div class="dl" id="dl-lunch">午市耗电</div><div class="dv y" id="d-lunch">—</div><div class="ds" id="ds-lunch">kWh</div></div>
-      <div class="dc"><div class="dl" id="dl-dinner">晚市耗电</div><div class="dv o" id="d-dinner">—</div><div class="ds" id="ds-dinner">kWh</div></div>
-      <div class="dc full"><div class="dl" id="dl-total">今日营业总耗电</div><div class="dv" id="d-total">—</div><div class="ds" id="ds-total">kWh</div></div>
+    <!-- TODAY -->
+    <div class="period-header">
+      <span class="period-icon">📅</span>
+      <span class="period-title" id="dst1">今日</span>
+      <span class="period-date" id="period-today-date"></span>
     </div>
-
-    <div class="stitle" id="dst3">静态负载</div>
-    <div class="dg">
-      <div class="dc full">
-        <div class="dl" id="dl-static">关店期间</div>
-        <div class="dv g" id="d-static">—</div>
-        <div class="ds" id="ds-static">kWh · 制冷 + 待机</div>
-        <div class="prog-track" id="staticProg" style="display:none"><div class="prog-fill" id="staticBar" style="width:0%"></div></div>
-        <div class="prog-lbl" id="staticLbl" style="display:none"><span>0</span><span id="staticBarR"></span></div>
-      </div>
+    <div class="dc full" style="margin-bottom:10px">
+      <div class="dl">完成度</div>
+      <div id="todayChecklist"></div>
     </div>
+    <div class="dg" id="today-grid"></div>
+    <div class="divider"></div>
 
-    <div class="stitle" id="dst4">累计统计</div>
-    <div class="dg">
-      <div class="dc"><div class="dl" id="dl-days">记录天数</div><div class="dv g" id="d-days">0</div><div class="ds">天</div></div>
-      <div class="dc"><div class="dl" id="dl-count">总记录</div><div class="dv" id="d-count">0</div><div class="ds" id="ds-count">条</div></div>
-      <div class="dc full"><div class="dl" id="dl-avg">近7日平均营业耗电</div><div class="dv o" id="d-avg">—</div><div class="ds" id="ds-avg">kWh/天</div></div>
+    <!-- YESTERDAY -->
+    <div class="period-header">
+      <span class="period-icon">🗓️</span>
+      <span class="period-title" id="dst-yest">昨日</span>
+      <span class="period-date" id="period-yest-date"></span>
     </div>
+    <div class="dg" id="yest-grid"></div>
+    <div class="divider"></div>
 
-    <div class="stitle" id="dst5">AI 智能分析</div>
+    <!-- 7 DAYS -->
+    <div class="period-header">
+      <span class="period-icon">📈</span>
+      <span class="period-title" id="dst-7d">过去 7 天</span>
+    </div>
+    <div class="dg" id="week-grid"></div>
+    <div class="day-bars" id="weekBars"></div>
+    <div class="divider"></div>
+
+    <!-- 30 DAYS -->
+    <div class="period-header">
+      <span class="period-icon">📊</span>
+      <span class="period-title" id="dst-30d">过去 30 天</span>
+    </div>
+    <div class="dg" id="month-grid"></div>
+    <div class="divider"></div>
+
+    <!-- AI -->
+    <div class="period-header">
+      <span class="period-icon">🤖</span>
+      <span class="period-title" id="ai-ctitle">AI 智能分析</span>
+      <button class="ai-refresh-btn" onclick="runAI()" id="aiRefBtn">刷新</button>
+    </div>
     <div class="ai-card">
-      <div class="ai-head">
-        <span class="ai-icon">🤖</span>
-        <span class="ai-card-title" id="ai-ctitle">用电模式分析</span>
-        <button class="ai-refresh-btn" onclick="runAI()" id="aiRefBtn">刷新分析</button>
-      </div>
-      <div class="ai-body loading" id="aiBody">点击"刷新分析"生成报告</div>
+      <div class="ai-body loading" id="aiBody">点击"刷新"生成报告</div>
     </div>
+    <div class="divider"></div>
 
-    <div class="stitle" id="dst6">节能参考</div>
+    <!-- ECO -->
+    <div class="period-header"><span class="period-icon">💡</span><span class="period-title" id="dst6">节能参考</span></div>
     <div class="dc full"><div style="font-size:12px;color:var(--muted);line-height:2" id="eco-tips"></div></div>
   </div>
 
@@ -550,17 +580,11 @@ function applyAppLang(){
   set('rl-lbl',t.rl_lbl);set('ai-load-txt',t.ai_load);
   document.getElementById('noteArea').placeholder=t.note_ph;
   set('subBtn',t.sub_btn);
-  set('dl-today',t.dl_today);
-  set('dl-lunch',t.dl_lunch);set('ds-lunch',t.ds_lunch);
-  set('dl-dinner',t.dl_dinner);set('ds-dinner',t.ds_dinner);
-  set('dl-total',t.dl_total);set('ds-total',t.ds_total);
-  set('dl-static',t.dl_static);set('ds-static',t.ds_static);
-  set('dl-days',t.dl_days);set('dl-count',t.dl_count);set('ds-count',t.ds_count);
-  set('dl-avg',t.dl_avg);set('ds-avg',t.ds_avg);
   set('ai-ctitle',t.ai_ctitle);set('aiRefBtn',t.ai_refresh);
   setAiBody(t.ai_placeholder,true);
-  set('dst1',t.dst1);set('dst2',t.dst2);set('dst3',t.dst3);
-  set('dst4',t.dst4);set('dst5',t.dst5);set('dst6',t.dst6);
+  set('dst1',t.dst1);set('dst-yest',t.dst_yest||'昨日');
+  set('dst-7d',t.dst_7d||'过去 7 天');set('dst-30d',t.dst_30d||'过去 30 天');
+  set('dst6',t.dst6);
   setHTML('eco-tips',t.eco);
   set('rec-title',t.rec_title);set('rec-refresh',t.rec_refresh);set('rec-empty',t.rec_empty);
 }
@@ -874,55 +898,173 @@ function resetForm(){
 // ══════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════
+// ══════════════════════════════════════
+// DASHBOARD HELPERS
+// ══════════════════════════════════════
+
+// Calculate operational and static kWh from a day's records
+// Returns {lunch, dinner, operational, static, incomplete, missingSlots}
+function calcDay(recs, prevClose){
+  const bl=recs.find(r=>r.status==='before_lunch');
+  const al=recs.find(r=>r.status==='after_lunch');
+  const bd=recs.find(r=>r.status==='before_dinner');
+  const ad=recs.find(r=>r.status==='after_dinner');
+  const lunch  = bl&&al ? al.meter_display-bl.meter_display : null;
+  const dinner = bd&&ad ? ad.meter_display-bd.meter_display : null;
+  const operational = (lunch!=null||dinner!=null) ? (lunch||0)+(dinner||0) : null;
+  // Static: prevClose → first open of this day
+  let staticKwh=null, staticHrs=null;
+  if(prevClose){
+    const firstOpen=recs.filter(r=>r.status==='before_lunch'||r.status==='before_dinner')
+      .sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at))[0];
+    if(firstOpen){
+      staticKwh=firstOpen.meter_display-prevClose.meter_display;
+      staticHrs=(+new Date(firstOpen.created_at)-+new Date(prevClose.created_at))/3600000;
+    }
+  }
+  const missing=[];
+  if(!bl) missing.push('午市前');
+  if(!al) missing.push('午市后');
+  if(!bd) missing.push('晚市前');
+  if(!ad) missing.push('晚市后');
+  return {lunch,dinner,operational,staticKwh,staticHrs,incomplete:missing.length>0,missingSlots:missing};
+}
+
+// Render a period's stat cards into a grid element
+function renderPeriodGrid(elId, d, showStatic=true){
+  const el=document.getElementById(elId); if(!el)return;
+  const fmt=v=>v!=null?v.toFixed(2):'—';
+  const incBadge=d.incomplete&&d.missingSlots?.length
+    ?`<span class="incomplete-badge">缺：${d.missingSlots.join('/')}</span>`:'';
+  let html=`
+    <div class="dc"><div class="dl">午市耗电</div><div class="dv y">${fmt(d.lunch)}</div><div class="ds">kWh</div></div>
+    <div class="dc"><div class="dl">晚市耗电</div><div class="dv o">${fmt(d.dinner)}</div><div class="ds">kWh</div></div>
+    <div class="dc full"><div class="dl">营业总耗电 ${incBadge}</div><div class="dv">${fmt(d.operational)}</div><div class="ds">kWh${d.incomplete?' · 部分数据缺失，仅供参考':''}</div></div>`;
+  if(showStatic){
+    const stBar=d.staticKwh!=null?`
+      <div class="prog-track" style="margin-top:8px"><div class="prog-fill" style="width:${Math.min(100,(d.staticKwh/100)*100)}%"></div></div>
+      <div class="prog-lbl"><span>0</span><span>${d.staticKwh.toFixed(1)} / 100 kWh</span></div>`:'';
+    const stAvg=d.staticKwh!=null&&d.staticHrs>0?` · ${(d.staticKwh/d.staticHrs).toFixed(2)} kW avg`:'';
+    const stHrs=d.staticHrs!=null?` · ${d.staticHrs.toFixed(1)}h`:'';
+    html+=`<div class="dc full"><div class="dl">静态负载（关店期间）</div>
+      <div class="dv g">${fmt(d.staticKwh)}</div>
+      <div class="ds">kWh${stHrs}${stAvg}</div>${stBar}</div>`;
+  }
+  el.innerHTML=html;
+}
+
 async function renderDash(){
   if(!sb)return;
   try{
-    const {data,error}=await sb.from('electricity_readings').select('*').order('created_at',{ascending:false}).limit(120);
+    const {data,error}=await sb.from('electricity_readings')
+      .select('*').order('created_at',{ascending:false}).limit(300);
     if(error||!data)return;
+
+    // Group by local date
+    const byDay={};
+    data.forEach(r=>{
+      const d=localDate(new Date(r.created_at));
+      if(!byDay[d])byDay[d]=[];
+      byDay[d].push(r);
+    });
+    const sortedDays=Object.keys(byDay).sort().reverse(); // newest first
+
+    // Helper: find previous close before a given date
+    function prevClose(dateStr){
+      const prevDays=sortedDays.filter(d=>d<dateStr);
+      for(const d of prevDays){
+        const close=byDay[d].filter(r=>r.status==='after_dinner'||r.status==='after_lunch')
+          .sort((a,b)=>+new Date(b.created_at)-+new Date(a.created_at))[0];
+        if(close)return close;
+      }
+      return null;
+    }
+
     const todayStr=localDate(new Date());
-    const todayRecs=data.filter(r=>localDate(new Date(r.created_at))===todayStr);
-    // Checklist
+    const yesterStr=localDate(new Date(Date.now()-86400000));
+
+    // ── TODAY ──
+    document.getElementById('period-today-date').textContent=
+      new Date().toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit',timeZone:'Europe/Berlin'});
+    const todayRecs=byDay[todayStr]||[];
     const keys=['before_lunch','after_lunch','before_dinner','after_dinner'];
     document.getElementById('todayChecklist').innerHTML=keys.map(s=>{
       const rec=todayRecs.find(r=>r.status===s);
       const val=rec?`${rec.meter_display.toLocaleString('de-DE',{minimumFractionDigits:2})} kWh`:'—';
       return `<div class="ck-item"><div class="ck-dot ${rec?'done':'todo'}"></div><div class="ck-name">${t.status_labels[s]}</div><div class="ck-val">${val}</div></div>`;
     }).join('');
-    // Deltas
-    const bl=todayRecs.find(r=>r.status==='before_lunch'),al=todayRecs.find(r=>r.status==='after_lunch');
-    const bd=todayRecs.find(r=>r.status==='before_dinner'),ad=todayRecs.find(r=>r.status==='after_dinner');
-    const lk=bl&&al?al.meter_display-bl.meter_display:null;
-    const dk=bd&&ad?ad.meter_display-bd.meter_display:null;
-    set('d-lunch',lk!=null?lk.toFixed(2):'—');
-    set('d-dinner',dk!=null?dk.toFixed(2):'—');
-    set('d-total',(lk!=null||dk!=null)?((lk||0)+(dk||0)).toFixed(2)+' kWh':'—');
-    // Static
-    const firstOpen=todayRecs.filter(r=>r.status==='before_lunch'||r.status==='before_dinner').sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at))[0];
-    const prevClose=data.filter(r=>(r.status==='after_dinner'||r.status==='after_lunch')&&localDate(new Date(r.created_at))!==todayStr).sort((a,b)=>+new Date(b.created_at)-+new Date(a.created_at))[0];
-    if(firstOpen&&prevClose){
-      const st=firstOpen.meter_display-prevClose.meter_display;
-      const hrs=(+new Date(firstOpen.created_at)-+new Date(prevClose.created_at))/3600000;
-      set('d-static',st.toFixed(2));
-      set('ds-static',`kWh · ${hrs.toFixed(1)}h · ${(st/hrs).toFixed(2)} kW avg`);
-      const pct=Math.min(100,(st/100)*100);
-      document.getElementById('staticProg').style.display='block';
-      document.getElementById('staticLbl').style.display='flex';
-      document.getElementById('staticBar').style.width=pct+'%';
-      set('staticBarR',`${st.toFixed(1)} / 100 kWh`);
+    const todayCalc=calcDay(todayRecs, prevClose(todayStr));
+    renderPeriodGrid('today-grid', todayCalc);
+
+    // ── YESTERDAY ──
+    document.getElementById('period-yest-date').textContent=
+      new Date(Date.now()-86400000).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit',timeZone:'Europe/Berlin'});
+    const yestRecs=byDay[yesterStr]||[];
+    if(yestRecs.length){
+      const yestCalc=calcDay(yestRecs, prevClose(yesterStr));
+      renderPeriodGrid('yest-grid', yestCalc);
+    } else {
+      document.getElementById('yest-grid').innerHTML=`<div class="dc full"><div class="ds" style="color:var(--muted)">昨日无记录</div></div>`;
     }
-    // Cumulative
-    const days=new Set(data.map(r=>localDate(new Date(r.created_at))));
-    set('d-days',days.size);set('d-count',data.length);
-    // 7d avg
-    const byDay={};
-    data.forEach(r=>{const d=localDate(new Date(r.created_at));if(!byDay[d])byDay[d]=[];byDay[d].push(r);});
-    const ops=Object.entries(byDay).map(([,recs])=>{
-      const opens=recs.filter(r=>r.status==='before_lunch'||r.status==='before_dinner').sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at));
-      const closes=recs.filter(r=>r.status==='after_dinner'||r.status==='after_lunch').sort((a,b)=>+new Date(b.created_at)-+new Date(a.created_at));
-      if(!opens.length||!closes.length)return null;
-      return closes[0].meter_display-opens[0].meter_display;
-    }).filter(v=>v!=null&&v>0);
-    if(ops.length>=2)set('d-avg',(ops.slice(0,7).reduce((a,b)=>a+b,0)/Math.min(ops.length,7)).toFixed(2)+' kWh');
+
+    // ── 7 DAYS ──
+    const last7Days=sortedDays.filter(d=>d<todayStr).slice(0,7);
+    const week7=last7Days.map(d=>({day:d,...calcDay(byDay[d],prevClose(d))}));
+    const validOp7=week7.filter(d=>d.operational!=null).map(d=>d.operational);
+    const validSt7=week7.filter(d=>d.staticKwh!=null).map(d=>d.staticKwh);
+    const avg7op=validOp7.length?validOp7.reduce((a,b)=>a+b,0)/validOp7.length:null;
+    const avg7st=validSt7.length?validSt7.reduce((a,b)=>a+b,0)/validSt7.length:null;
+    const max7=validOp7.length?Math.max(...validOp7):null;
+    const min7=validOp7.length?Math.min(...validOp7):null;
+    const fmt=v=>v!=null?v.toFixed(2):'—';
+    document.getElementById('week-grid').innerHTML=`
+      <div class="dc"><div class="dl">平均营业耗电</div><div class="dv">${fmt(avg7op)}</div><div class="ds">kWh/天 · ${validOp7.length}天有效</div></div>
+      <div class="dc"><div class="dl">平均静态负载</div><div class="dv g">${fmt(avg7st)}</div><div class="ds">kWh/夜 · ${validSt7.length}天有效</div></div>
+      <div class="dc"><div class="dl">最高营业日</div><div class="dv o">${fmt(max7)}</div><div class="ds">kWh</div></div>
+      <div class="dc"><div class="dl">最低营业日</div><div class="dv y">${fmt(min7)}</div><div class="ds">kWh</div></div>`;
+
+    // Bar chart
+    const maxBar=max7||100;
+    const maxSt=validSt7.length?Math.max(...validSt7):50;
+    document.getElementById('weekBars').innerHTML=`
+      <div class="bar-legend">
+        <div style="display:flex;align-items:center;gap:4px"><div class="bar-legend-dot" style="background:rgba(0,212,255,.5)"></div>营业耗电</div>
+        <div style="display:flex;align-items:center;gap:4px"><div class="bar-legend-dot" style="background:rgba(45,255,154,.35)"></div>静态负载</div>
+      </div>`+
+      last7Days.map(d=>{
+        const rec=week7.find(w=>w.day===d);
+        const opW=rec?.operational!=null?Math.round((rec.operational/maxBar)*100):0;
+        const stW=rec?.staticKwh!=null?Math.round((rec.staticKwh/maxBar)*100):0;
+        const label=d.slice(5).replace('-','/');
+        const valTxt=[
+          rec?.operational!=null?`营${rec.operational.toFixed(0)}kWh`:'',
+          rec?.staticKwh!=null?`静${rec.staticKwh.toFixed(0)}kWh`:'',
+        ].filter(Boolean).join(' ');
+        return `<div class="bar-row">
+          <div class="bar-date">${label}</div>
+          <div class="bar-track">
+            <div class="bar-op" style="width:${opW}%"></div>
+            <div class="bar-st" style="width:${stW}%"></div>
+          </div>
+          <div class="bar-val">${valTxt||'—'}</div>
+        </div>`;
+      }).join('');
+
+    // ── 30 DAYS ──
+    const last30Days=sortedDays.filter(d=>d<todayStr).slice(0,30);
+    const month30=last30Days.map(d=>({day:d,...calcDay(byDay[d],prevClose(d))}));
+    const validOp30=month30.filter(d=>d.operational!=null).map(d=>d.operational);
+    const validSt30=month30.filter(d=>d.staticKwh!=null).map(d=>d.staticKwh);
+    const totalOp30=validOp30.reduce((a,b)=>a+b,0);
+    const totalSt30=validSt30.reduce((a,b)=>a+b,0);
+    const avg30op=validOp30.length?totalOp30/validOp30.length:null;
+    const completeDays=month30.filter(d=>!d.incomplete).length;
+    document.getElementById('month-grid').innerHTML=`
+      <div class="dc"><div class="dl">总营业耗电</div><div class="dv">${validOp30.length?totalOp30.toFixed(0):'—'}</div><div class="ds">kWh · ${validOp30.length}天有效</div></div>
+      <div class="dc"><div class="dl">总静态负载</div><div class="dv g">${validSt30.length?totalSt30.toFixed(0):'—'}</div><div class="ds">kWh · ${validSt30.length}夜有效</div></div>
+      <div class="dc"><div class="dl">日均营业耗电</div><div class="dv o">${fmt(avg30op)}</div><div class="ds">kWh/天</div></div>
+      <div class="dc"><div class="dl">数据完整度</div><div class="dv y">${last30Days.length?Math.round(completeDays/last30Days.length*100):0}%</div><div class="ds">${completeDays} / ${last30Days.length} 天完整</div></div>`;
+
   }catch(e){console.error(e);}
 }
 
