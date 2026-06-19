@@ -194,6 +194,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 .bar-legend{display:flex;gap:14px;margin-bottom:8px;font-size:11px;color:var(--muted)}
 .bar-legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .warn-row{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--red);margin-bottom:10px;line-height:1.6}
+.rec-actions{display:flex;gap:8px;margin-top:8px}
+.rec-btn{font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--s2);color:var(--muted);cursor:pointer;transition:all .15s}
+.rec-btn:active{transform:scale(.95)}
+.rec-btn:hover{color:var(--text);border-color:var(--cyan)}
+.rec-btn.del:hover{color:var(--red);border-color:var(--red)}
 .empty{text-align:center;padding:50px 20px;color:var(--muted)}
 .empty-i{font-size:44px;opacity:.3;margin-bottom:12px}
 .empty-t{font-size:13px;line-height:1.6}
@@ -902,24 +907,50 @@ function resetForm(){
 // DASHBOARD HELPERS
 // ══════════════════════════════════════
 
+// Sanity check for a single delta (kWh consumed between two readings)
+// Electricity meter only increases. A delta is valid if:
+//  - positive (meter went up)
+//  - not absurdly large (< 2000 kWh for any single session/night)
+// Returns the delta if valid, otherwise null
+function validDelta(later, earlier){
+  if(later==null||earlier==null) return null;
+  const d=later-earlier;
+  if(d<0) return null;        // meter went backwards = bad reading
+  if(d>2000) return null;     // single session > 2000 kWh = bad reading (10x error)
+  return d;
+}
+
 // Calculate operational and static kWh from a day's records
-// Returns {lunch, dinner, operational, static, incomplete, missingSlots}
+// Returns {lunch, dinner, operational, static, incomplete, missingSlots, badData}
 function calcDay(recs, prevClose){
   const bl=recs.find(r=>r.status==='before_lunch');
   const al=recs.find(r=>r.status==='after_lunch');
   const bd=recs.find(r=>r.status==='before_dinner');
   const ad=recs.find(r=>r.status==='after_dinner');
-  const lunch  = bl&&al ? al.meter_display-bl.meter_display : null;
-  const dinner = bd&&ad ? ad.meter_display-bd.meter_display : null;
+
+  const lunch  = validDelta(al?.meter_display, bl?.meter_display);
+  const dinner = validDelta(ad?.meter_display, bd?.meter_display);
+
+  // Detect bad data: slots both present but delta invalid
+  let badData=false;
+  if(bl&&al&&lunch==null) badData=true;
+  if(bd&&ad&&dinner==null) badData=true;
+
   const operational = (lunch!=null||dinner!=null) ? (lunch||0)+(dinner||0) : null;
+
   // Static: prevClose → first open of this day
   let staticKwh=null, staticHrs=null;
   if(prevClose){
     const firstOpen=recs.filter(r=>r.status==='before_lunch'||r.status==='before_dinner')
       .sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at))[0];
     if(firstOpen){
-      staticKwh=firstOpen.meter_display-prevClose.meter_display;
-      staticHrs=(+new Date(firstOpen.created_at)-+new Date(prevClose.created_at))/3600000;
+      const sd=validDelta(firstOpen.meter_display, prevClose.meter_display);
+      if(sd!=null){
+        staticKwh=sd;
+        staticHrs=(+new Date(firstOpen.created_at)-+new Date(prevClose.created_at))/3600000;
+      } else {
+        badData=true;
+      }
     }
   }
   const missing=[];
@@ -927,7 +958,7 @@ function calcDay(recs, prevClose){
   if(!al) missing.push('午市后');
   if(!bd) missing.push('晚市前');
   if(!ad) missing.push('晚市后');
-  return {lunch,dinner,operational,staticKwh,staticHrs,incomplete:missing.length>0,missingSlots:missing};
+  return {lunch,dinner,operational,staticKwh,staticHrs,incomplete:missing.length>0,missingSlots:missing,badData};
 }
 
 // Render a period's stat cards into a grid element
@@ -936,10 +967,12 @@ function renderPeriodGrid(elId, d, showStatic=true){
   const fmt=v=>v!=null?v.toFixed(2):'—';
   const incBadge=d.incomplete&&d.missingSlots?.length
     ?`<span class="incomplete-badge">缺：${d.missingSlots.join('/')}</span>`:'';
+  const badBadge=d.badData
+    ?`<span class="incomplete-badge" style="background:rgba(255,71,87,.15);color:var(--red);border-color:rgba(255,71,87,.3)">⚠️ 异常读数</span>`:'';
   let html=`
     <div class="dc"><div class="dl">午市耗电</div><div class="dv y">${fmt(d.lunch)}</div><div class="ds">kWh</div></div>
     <div class="dc"><div class="dl">晚市耗电</div><div class="dv o">${fmt(d.dinner)}</div><div class="ds">kWh</div></div>
-    <div class="dc full"><div class="dl">营业总耗电 ${incBadge}</div><div class="dv">${fmt(d.operational)}</div><div class="ds">kWh${d.incomplete?' · 部分数据缺失，仅供参考':''}</div></div>`;
+    <div class="dc full"><div class="dl">营业总耗电 ${incBadge}${badBadge}</div><div class="dv">${fmt(d.operational)}</div><div class="ds">kWh${d.badData?' · 检测到异常读数，请检查记录':d.incomplete?' · 部分数据缺失，仅供参考':''}</div></div>`;
   if(showStatic){
     const stBar=d.staticKwh!=null?`
       <div class="prog-track" style="margin-top:8px"><div class="prog-fill" style="width:${Math.min(100,(d.staticKwh/100)*100)}%"></div></div>
@@ -1082,8 +1115,10 @@ async function runAI(){
     const summary=Object.entries(byDay).slice(0,14).map(([day,recs])=>{
       const bl=recs.find(r=>r.status==='before_lunch'),al=recs.find(r=>r.status==='after_lunch');
       const bd=recs.find(r=>r.status==='before_dinner'),ad=recs.find(r=>r.status==='after_dinner');
-      const l=bl&&al?(al.meter_display-bl.meter_display).toFixed(1)+'kWh':'-';
-      const d2=bd&&ad?(ad.meter_display-bd.meter_display).toFixed(1)+'kWh':'-';
+      const lv=validDelta(al?.meter_display,bl?.meter_display);
+      const dv=validDelta(ad?.meter_display,bd?.meter_display);
+      const l=lv!=null?lv.toFixed(1)+'kWh':'-';
+      const d2=dv!=null?dv.toFixed(1)+'kWh':'-';
       const maxG=Math.max(...recs.map(r=>r.grills_on||0));
       return `${day} 午${l} 晚${d2} 炉${maxG}台`;
     }).join('\n');
@@ -1092,7 +1127,8 @@ async function runAI(){
     for(let i=1;i<sorted.length;i++){
       if((sorted[i].status==='before_lunch'||sorted[i].status==='before_dinner')&&(sorted[i-1].status==='after_dinner'||sorted[i-1].status==='after_lunch')){
         const h=(+new Date(sorted[i].created_at)-+new Date(sorted[i-1].created_at))/3600000;
-        if(h>4&&h<16)statics.push((sorted[i].meter_display-sorted[i-1].meter_display)/h);
+        const d=validDelta(sorted[i].meter_display,sorted[i-1].meter_display);
+        if(h>4&&h<16&&d!=null)statics.push(d/h);
       }
     }
     const avgStatic=statics.length?(statics.reduce((a,b)=>a+b,0)/statics.length).toFixed(2)+' kW':'数据不足';
@@ -1118,6 +1154,21 @@ async function loadRecords(){
     if(error)throw error;
     if(!data||!data.length){el.innerHTML=`<div class="empty"><div class="empty-i">📋</div><div class="empty-t">${t.rec_empty}</div></div>`;return;}
     const dc={before_lunch:'#2dff9a',after_lunch:'#ffd23f',before_dinner:'#00d4ff',after_dinner:'#ff6b35',special:'#ff4757'};
+
+    // Detect outliers: reading that breaks monotonic order with neighbors
+    const sortedAsc=data.slice().sort((a,b)=>+new Date(a.created_at)-+new Date(b.created_at));
+    const outlierIds=new Set();
+    for(let i=0;i<sortedAsc.length;i++){
+      const cur=sortedAsc[i].meter_display;
+      const prev=i>0?sortedAsc[i-1].meter_display:null;
+      const next=i<sortedAsc.length-1?sortedAsc[i+1].meter_display:null;
+      // If reading is smaller than previous OR next is smaller than current by a huge gap
+      if(prev!=null&&next!=null){
+        if(cur<prev-1||cur<next-50000){ outlierIds.add(sortedAsc[i].id); }
+      }
+    }
+
+    const isBoss=currentUser&&currentUser.isBoss;
     el.innerHTML=data.map(r=>{
       const dot=dc[r.status]||'#888';
       const statusLabel=t.status_labels[r.status]||r.status;
@@ -1126,9 +1177,41 @@ async function loadRecords(){
       const gt=r.grills_on>0?` · 🔥×${r.grills_on}`:'';
       const rt=r.recorder?` · ${r.recorder}`:'';
       const ph=r.photo_url?`<img class="rec-photo" src="${r.photo_url}" onclick="openLb('${r.photo_url}')" loading="lazy">`:'';
-      return `<div class="rec"><div class="rec-bar" style="background:${dot}"></div><div class="rec-body"><div class="rec-top"><div class="rec-status">${statusLabel}</div><div class="rec-reading">${(r.meter_display||0).toLocaleString('de-DE',{minimumFractionDigits:2})} kWh</div></div><div class="rec-meta">${ts}${rt}${gt}</div>${r.note?`<div class="rec-note">${r.note}</div>`:''}</div>${ph}</div>`;
+      const isOutlier=outlierIds.has(r.id);
+      const outlierTag=isOutlier?`<span class="incomplete-badge" style="background:rgba(255,71,87,.15);color:var(--red);border-color:rgba(255,71,87,.3);margin-left:6px">⚠️ 异常</span>`:'';
+      const bossBtns=isBoss?`<div class="rec-actions">
+        <button class="rec-btn" onclick="editReading(${r.id},${r.meter_display})">✏️ 改读数</button>
+        <button class="rec-btn del" onclick="deleteReading(${r.id})">🗑 删除</button>
+      </div>`:'';
+      const readingColor=isOutlier?'var(--red)':'var(--cyan)';
+      return `<div class="rec" style="${isOutlier?'border-color:rgba(255,71,87,.4)':''}"><div class="rec-bar" style="background:${dot}"></div><div class="rec-body"><div class="rec-top"><div class="rec-status">${statusLabel}${outlierTag}</div><div class="rec-reading" style="color:${readingColor}">${(r.meter_display||0).toLocaleString('de-DE',{minimumFractionDigits:2})} kWh</div></div><div class="rec-meta">${ts}${rt}${gt}</div>${r.note?`<div class="rec-note">${r.note}</div>`:''}${bossBtns}</div>${ph}</div>`;
     }).join('');
   }catch(e){el.innerHTML=`<div class="empty"><div class="empty-i">❌</div><div class="empty-t">${e.message}</div></div>`;}
+}
+
+// Edit a reading (boss only)
+async function editReading(id, currentVal){
+  const newVal=prompt('修改电表读数 (kWh)：\n当前值 '+currentVal,currentVal);
+  if(newVal==null)return;
+  const v=parseFloat(newVal);
+  if(isNaN(v)){showToast('⚠️ 输入无效',true);return;}
+  try{
+    const {error}=await sb.from('electricity_readings').update({meter_display:v}).eq('id',id);
+    if(error)throw error;
+    showToast('✅ 读数已修改');
+    loadRecords();
+  }catch(e){showToast('❌ 修改失败：'+e.message,true);}
+}
+
+// Delete a reading (boss only)
+async function deleteReading(id){
+  if(!confirm('确定删除这条记录？此操作不可撤销。'))return;
+  try{
+    const {error}=await sb.from('electricity_readings').delete().eq('id',id);
+    if(error)throw error;
+    showToast('🗑 已删除');
+    loadRecords();
+  }catch(e){showToast('❌ 删除失败：'+e.message,true);}
 }
 
 // ══════════════════════════════════════
